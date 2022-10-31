@@ -23,8 +23,16 @@ static inline int vpsm4_capable(void)
              MIDR_IS_CPU_MODEL(OPENSSL_arm_midr, ARM_CPU_IMP_ARM, ARM_CPU_PART_N1) ||
              MIDR_IS_CPU_MODEL(OPENSSL_arm_midr, HISI_CPU_IMP, HISI_CPU_PART_KP920));
 }
+static inline int vpsm4_ex_capable(void)
+{
+    return (OPENSSL_armcap_P & ARMV8_CPUID) &&
+            (MIDR_IS_CPU_MODEL(OPENSSL_arm_midr, HISI_CPU_IMP, HISI_CPU_PART_KP920));
+}
 #    if defined(VPSM4_ASM)
 #     define VPSM4_CAPABLE vpsm4_capable()
+#    endif
+#    if !defined(OPENSSL_NO_VPSM4_EX)
+#     define VPSM4_EX_CAPABLE vpsm4_ex_capable()
 #    endif
 #    define HWSM4_CAPABLE (OPENSSL_armcap_P & ARMV8_SM4)
 #    define HWSM4_set_encrypt_key sm4_v8_set_encrypt_key
@@ -74,5 +82,19 @@ void vpsm4_ctr32_encrypt_blocks(const unsigned char *in, unsigned char *out,
                                 const unsigned char ivec[16]);
 # endif /* VPSM4_CAPABLE */
 
+#ifdef VPSM4_EX_CAPABLE
+void vpsm4_ex_ecb_encrypt(
+    const unsigned char *in, unsigned char *out, size_t length, const SM4_KEY *key, const int enc);
+/* xts mode in GB/T 17964-2021 */
+void vpsm4_ex_xts_encrypt_gb(const unsigned char *in, unsigned char *out, size_t length, const SM4_KEY *key1,
+    const SM4_KEY *key2, const uint8_t iv[16]);
+void vpsm4_ex_xts_decrypt_gb(const unsigned char *in, unsigned char *out, size_t length, const SM4_KEY *key1,
+    const SM4_KEY *key2, const uint8_t iv[16]);
+/* xts mode in IEEE Std 1619-2007 */
+void vpsm4_ex_xts_encrypt(const unsigned char *in, unsigned char *out, size_t length, const SM4_KEY *key1,
+    const SM4_KEY *key2, const uint8_t iv[16]);
+void vpsm4_ex_xts_decrypt(const unsigned char *in, unsigned char *out, size_t length, const SM4_KEY *key1,
+    const SM4_KEY *key2, const uint8_t iv[16]);
+# endif /* VPSM4_EX_CAPABLE */
 
 #endif /* OSSL_SM4_PLATFORM_H */
