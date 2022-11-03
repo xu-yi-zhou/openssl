@@ -5475,3 +5475,4 @@ BIO_f_brotli                            ?	3_2_0	EXIST::FUNCTION:COMP
 COMP_zstd                               ?	3_2_0	EXIST::FUNCTION:COMP
 COMP_zstd_oneshot                       ?	3_2_0	EXIST::FUNCTION:COMP
 BIO_f_zstd                              ?	3_2_0	EXIST::FUNCTION:COMP
+CRYPTO_xts128gb_encrypt                 ?	3_2_0	EXIST::FUNCTION:

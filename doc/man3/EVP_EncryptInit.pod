@@ -993,6 +993,10 @@ Byte 11-12: Input length (Always 0)
 
 "tls1multi_interleave" must also be set for this operation.
 
+=item "xts_standard" (B<OSSL_CIPHER_PARAM_XTS_STANDARD>) <integer>
+
+Sets the XTS standard.
+
 =back
 
 =head1 CONTROLS
