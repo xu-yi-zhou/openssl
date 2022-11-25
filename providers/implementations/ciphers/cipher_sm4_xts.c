@@ -191,7 +191,7 @@ static int sm4_xts_stream_final(void *vctx, unsigned char *out, size_t *outl,
 
 static const OSSL_PARAM sm4_xts_known_settable_ctx_params[] = {
     OSSL_PARAM_size_t(OSSL_CIPHER_PARAM_KEYLEN, NULL),
-    OSSL_PARAM_int(OSSL_CIPHER_PARAM_XTS_STANDARD, NULL),
+    OSSL_PARAM_utf8_string(OSSL_CIPHER_PARAM_XTS_STANDARD, NULL, 0),
     OSSL_PARAM_END
 };
 
@@ -223,19 +223,35 @@ static int sm4_xts_set_ctx_params(void *vxctx, const OSSL_PARAM params[])
             return 0;
     }
 
+    /*-
+     * Sets the XTS standard to use with SM4-XTS algorithm.
+     *
+     * Must be utf8 string "GB" or "IEEE",
+     * "GB" means the GB/T 17964-2021 standard
+     * "IEEE" means the IEEE Std 1619-2007 standard
+     */
     p = OSSL_PARAM_locate_const(params, OSSL_CIPHER_PARAM_XTS_STANDARD);
 
     if (p != NULL) {
-        int xts_standard;
+        if (p->data_type != OSSL_PARAM_UTF8_STRING)
+            return 0;
 
-        if (!OSSL_PARAM_get_int(p, &xts_standard)) {
+        char* xts_standard = NULL;
+
+        if (!OSSL_PARAM_get_utf8_string(p, &xts_standard, 0)) {
             ERR_raise(ERR_LIB_PROV, PROV_R_FAILED_TO_GET_PARAMETER);
             return 0;
         }
-        /* must be 0 or 1 */
-        if (xts_standard < 0 || xts_standard > 1)
+        if (OPENSSL_strcasecmp(xts_standard, "GB") == 0) {
+            xctx->xts_standard = 0;
+        } else if (OPENSSL_strcasecmp(xts_standard, "IEEE") == 0) {
+            xctx->xts_standard = 1;
+        } else {
+            ERR_raise(ERR_LIB_PROV, PROV_R_FAILED_TO_SET_PARAMETER);
+            OPENSSL_free(xts_standard);
             return 0;
-        xctx->xts_standard = xts_standard;
+        }
+        OPENSSL_free(xts_standard);
     }
 
     return 1;
