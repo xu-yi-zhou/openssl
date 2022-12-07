@@ -1186,17 +1186,66 @@ $code.=<<___;
 ___
 }}}
 
-{{{
-my ($ivp,$enc)=("x5","w6");
+# void vpsm4_ex_xts_encrypt(const unsigned char *in, unsigned char *out,
+#                           size_t len, const void *key1, const void *key2,
+#                           const unsigned char ivec[16], const int enc);
+# void vpsm4_ex_xts_encrypt_gb(const unsigned char *in, unsigned char *out,
+#                           size_t len, const void *key1, const void *key2,
+#                           const unsigned char ivec[16], const int enc);
+# x0: in
+# x1: out
+# x2: len
+# x3: key1
+# x4: key2
+# x5: iv
+# x6: enc/dec
+# todo: encrypt_1blk=>delete rks
 
-sub gen_xts_do_cipher() {
+{{{
+my ($inp,$outp,$rks1,$rks2)=("x0","x1","x3","x4");
+my ($blocks,$len)=("x2","x2");
+my $remain=("x7");
+my ($ptr,$counter)=("x12","w13");
+my ($wtmp0,$wtmp1,$wtmp2,$wtmp3)=("w8","w9","w10","w11");
+my ($xtmp0,$xtmp1,$xtmp2,$xtmp3)=("x8","x9","x10","x11");
+my ($word0,$word1,$word2,$word3)=("w14","w15","w16","w17");
+my @twx=map("x$_",(14..29));
+my $lastBlk=("x26");
+
+my @tweak=map("v$_",(0..7));
+my @vtmpx=map("v$_",(4..7));
+my @qtmp=map("q$_",(8..11));
+my @vtmp=map("v$_",(8..11));
+my ($rk0,$rk1)=("v12","v13");
+my ($rka,$rkb)=("v14","v15");
+my @data=map("v$_",(16..19));
+my @datax=map("v$_",(20..23));
+my ($vtmp4,$vtmp5)=("v24","v25");
+my $lastTweak=("v25");
+my ($MaskV,$TAHMatV,$TALMatV,$ATAHMatV,$ATALMatV,$ANDMaskV)=("v26","v27","v28","v29","v30","v31");
+my ($MaskQ,$TAHMatQ,$TALMatQ,$ATAHMatQ,$ATALMatQ,$ANDMaskQ)=("q26","q27","q28","q29","q30","q31");
+
+
+sub gen_xts_cipher() {
+
 $code.=<<___;
-.globl    ${prefix}_xts_do_cipher${standard}
-.type    ${prefix}_xts_do_cipher${standard},%function
+.globl    ${prefix}_xts_encrypt${standard}
+.type    ${prefix}_xts_encrypt${standard},%function
 .align    5
-${prefix}_xts_do_cipher${standard}:
-	AARCH64_VALID_CALL_TARGET
-    stp x29,x30,[sp,#-16]!
+${prefix}_xts_encrypt${standard}:
+	AARCH64_SIGN_LINK_REGISTER
+    stp        x15, x16, [sp, #-0x10]!
+    stp        x17, x18, [sp, #-0x10]!
+    stp        x19, x20, [sp, #-0x10]!
+    stp        x21, x22, [sp, #-0x10]!
+    stp        x23, x24, [sp, #-0x10]!
+    stp        x25, x26, [sp, #-0x10]!
+    stp        x27, x28, [sp, #-0x10]!
+    stp        x29, x30, [sp, #-0x10]!
+    stp        d8, d9, [sp, #-0x10]!
+    stp        d10, d11, [sp, #-0x10]!
+    stp        d12, d13, [sp, #-0x10]!
+    stp        d14, d15, [sp, #-0x10]!
     ld1    {@tweak[0].4s}, [$ivp]
 ___
     &load_sbox_matrix();
@@ -1481,50 +1530,6 @@ $code.=<<___;
     eor @data[0].16b, @data[0].16b, @tweak[2].16b
     st1        {@data[0].4s}, [$lastBlk]
 .return${standard}:
-    ldp x29,x30,[sp],#16
-    ret
-.size    ${prefix}_xts_do_cipher${standard},.-${prefix}_xts_do_cipher${standard}
-___
-} #end of gen_xts_do_cipher
-
-}}}
-
-{{{
-my $enc=("w6");
-
-sub gen_xts_cipher() {
-	my $en = shift;
-
-$code.=<<___;
-.globl    ${prefix}_xts_${en}crypt${standard}
-.type    ${prefix}_xts_${en}crypt${standard},%function
-.align    5
-${prefix}_xts_${en}crypt${standard}:
-	AARCH64_SIGN_LINK_REGISTER
-    stp        x15, x16, [sp, #-0x10]!
-    stp        x17, x18, [sp, #-0x10]!
-    stp        x19, x20, [sp, #-0x10]!
-    stp        x21, x22, [sp, #-0x10]!
-    stp        x23, x24, [sp, #-0x10]!
-    stp        x25, x26, [sp, #-0x10]!
-    stp        x27, x28, [sp, #-0x10]!
-    stp        x29, x30, [sp, #-0x10]!
-    stp        d8, d9, [sp, #-0x10]!
-    stp        d10, d11, [sp, #-0x10]!
-    stp        d12, d13, [sp, #-0x10]!
-    stp        d14, d15, [sp, #-0x10]!
-___
-    if ($en eq "en") {
-$code.=<<___;
-        mov   $enc,1
-___
-    } else {
-$code.=<<___;
-        mov   $enc,0
-___
-    }
-$code.=<<___;
-    bl    ${prefix}_xts_do_cipher${standard}
     ldp        d14, d15, [sp], #0x10
     ldp        d12, d13, [sp], #0x10
     ldp        d10, d11, [sp], #0x10
@@ -1539,18 +1544,14 @@ $code.=<<___;
     ldp        x15, x16, [sp], #0x10
 	AARCH64_VALIDATE_LINK_REGISTER
     ret
-.size    ${prefix}_xts_${en}crypt${standard},.-${prefix}_xts_${en}crypt${standard}
+.size    ${prefix}_xts_encrypt${standard},.-${prefix}_xts_encrypt${standard}
 ___
 
 } # end of gen_xts_cipher
 $standard="_gb";
 &gen_xts_do_cipher();
-&gen_xts_cipher("en");
-&gen_xts_cipher("de");
 $standard="";
 &gen_xts_do_cipher();
-&gen_xts_cipher("en");
-&gen_xts_cipher("de");
 }}}
 
 ########################################

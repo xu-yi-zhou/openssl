@@ -93,16 +93,10 @@ void vpsm4_ex_ctr32_encrypt_blocks(const unsigned char *in, unsigned char *out,
                                    const unsigned char ivec[16]);
 void vpsm4_ex_xts_encrypt(const unsigned char *in, unsigned char *out,
                           size_t len, const void *key1, const void *key2,
-                          const unsigned char ivec[16]);
-void vpsm4_ex_xts_decrypt(const unsigned char *in, unsigned char *out,
-                          size_t len, const void *key1, const void *key2,
-                          const unsigned char ivec[16]);
+                          const unsigned char ivec[16], const int enc);
 void vpsm4_ex_xts_encrypt_gb(const unsigned char *in, unsigned char *out,
                           size_t len, const void *key1, const void *key2,
-                          const unsigned char ivec[16]);
-void vpsm4_ex_xts_decrypt_gb(const unsigned char *in, unsigned char *out,
-                          size_t len, const void *key1, const void *key2,
-                          const unsigned char ivec[16]);
+                          const unsigned char ivec[16], const int enc);
 # endif /* VPSM4_EX_CAPABLE */
 
 #endif /* OSSL_SM4_PLATFORM_H */
