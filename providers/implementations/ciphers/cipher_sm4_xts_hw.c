@@ -47,6 +47,18 @@ static int cipher_hw_sm4_xts_generic_initkey(PROV_CIPHER_CTX *ctx,
         return 1;
     } else
 #endif /* HWSM4_CAPABLE */
+#ifdef VPSM4_EX_CAPABLE
+    stream_enc = vpsm4_ex_xts_encrypt;
+    stream_dec = vpsm4_ex_xts_decrypt;
+    stream_gb_enc = vpsm4_ex_xts_encrypt_gb;
+    stream_gb_dec = vpsm4_ex_xts_decrypt_gb;
+    if (VPSM4_EX_CAPABLE) {
+        XTS_SET_KEY_FN(vpsm4_ex_set_encrypt_key, vpsm4_ex_set_decrypt_key,
+                       vpsm4_ex_encrypt, vpsm4_ex_decrypt, stream_enc, stream_dec,
+                       stream_gb_enc, stream_gb_dec);
+        return 1;
+    } else
+#endif /* VPSM4_EX_CAPABLE */
 #ifdef VPSM4_CAPABLE
     if (VPSM4_CAPABLE) {
         XTS_SET_KEY_FN(vpsm4_set_encrypt_key, vpsm4_set_decrypt_key,
