@@ -27,17 +27,12 @@ open OUT,"| \"$^X\" $xlate $flavour \"$output\""
 *STDOUT=*OUT;
 
 $prefix="vpsm4_ex";
-my ($inp,$outp,$rks1,$rks2)=("x0","x1","x3","x4");
-my ($blocks,$len)=("x2","x2");
-my $remain=("x7");
+my ($inp,$outp,$blocks,$rks)=("x0","x1","w2","x3");
 my ($ptr,$counter)=("x12","w13");
 my ($wtmp0,$wtmp1,$wtmp2,$wtmp3)=("w8","w9","w10","w11");
 my ($xtmp0,$xtmp1,$xtmp2,$xtmp3)=("x8","x9","x10","x11");
 my ($word0,$word1,$word2,$word3)=("w14","w15","w16","w17");
-my @twx=map("x$_",(14..29));
-my $lastBlk=("x26");
 
-my @tweak=map("v$_",(0..7));
 my @vtmpx=map("v$_",(4..7));
 my @qtmp=map("q$_",(8..11));
 my @vtmp=map("v$_",(8..11));
@@ -46,7 +41,7 @@ my ($rka,$rkb)=("v14","v15");
 my @data=map("v$_",(16..19));
 my @datax=map("v$_",(20..23));
 my ($vtmp4,$vtmp5)=("v24","v25");
-my $lastTweak=("v25");
+
 my ($MaskV,$TAHMatV,$TALMatV,$ATAHMatV,$ATALMatV,$ANDMaskV)=("v26","v27","v28","v29","v30","v31");
 my ($MaskQ,$TAHMatQ,$TALMatQ,$ATAHMatQ,$ATALMatQ,$ANDMaskQ)=("q26","q27","q28","q29","q30","q31");
 
@@ -395,39 +390,38 @@ ___
 }
 
 sub encrypt_1blk_norev() {
-    my $dat = shift;
-    my $rks = shift;
+	my $dat = shift;
+
 $code.=<<___;
-    mov    $ptr,$rks
-    mov    $counter,#8
-    mov    $word0,$dat.s[0]
-    mov    $word1,$dat.s[1]
-    mov    $word2,$dat.s[2]
-    mov    $word3,$dat.s[3]
+	mov	$ptr,$rks
+	mov	$counter,#8
+	mov	$word0,$dat.s[0]
+	mov	$word1,$dat.s[1]
+	mov	$word2,$dat.s[2]
+	mov	$word3,$dat.s[3]
 10:
 ___
-    &sm4_1blk($ptr);
+	&sm4_1blk($ptr);
 $code.=<<___;
-    subs    $counter,$counter,#1
-    b.ne    10b
-    mov    $dat.s[0],$word3
-    mov    $dat.s[1],$word2
-    mov    $dat.s[2],$word1
-    mov    $dat.s[3],$word0
+	subs	$counter,$counter,#1
+	b.ne	10b
+	mov	$dat.s[0],$word3
+	mov	$dat.s[1],$word2
+	mov	$dat.s[2],$word1
+	mov	$dat.s[3],$word0
 ___
 }
 
 sub encrypt_1blk() {
-    my $dat = shift;
-    my $rks = shift;
+	my $dat = shift;
 
-    &encrypt_1blk_norev($dat,$rks);
-    &rev32($dat,$dat);
+	&encrypt_1blk_norev($dat);
+	&rev32($dat,$dat);
 }
 
 sub encrypt_4blks() {
 $code.=<<___;
-    mov    $ptr,$rks1
+    mov    $ptr,$rks
     mov    $counter,#8
 10:
 ___
@@ -443,7 +437,6 @@ ___
 }
 
 sub encrypt_8blks() {
-    my $rks = shift;
 $code.=<<___;
     mov    $ptr,$rks
     mov    $counter,#8
@@ -652,7 +645,7 @@ $code.=<<___;
 ${prefix}_enc_8blks:
 	AARCH64_VALID_CALL_TARGET
 ___
-    &encrypt_8blks($rks1);
+    &encrypt_8blks();
 $code.=<<___;
     ret
 .size    ${prefix}_enc_8blks,.-${prefix}_enc_8blks
@@ -705,7 +698,10 @@ ${prefix}_${dir}crypt:
 ___
 	&load_sbox_matrix();
 	&rev32(@data[0],@data[0]);
-	&encrypt_1blk(@data[0],x2);
+$code.=<<___;
+	mov	$rks,x2
+___
+	&encrypt_1blk(@data[0]);
 $code.=<<___;
 	st1	{@data[0].16b},[$outp]
 	ret
@@ -777,7 +773,7 @@ $code.=<<___;
     ld1    {@data[0].4s},[$inp]
 ___
     &rev32(@data[0],@data[0]);
-    &encrypt_1blk(@data[0],$rks1);
+    &encrypt_1blk(@data[0]);
 $code.=<<___;
     st1    {@data[0].4s},[$outp]
     b    100f
@@ -849,22 +845,22 @@ ___
 	&rev32(@data[0],@data[0]);
 	&rev32(@data[2],@data[2]);
 	&rev32(@data[3],@data[3]);
-	&encrypt_1blk_norev(@data[0],$rks1);
+	&encrypt_1blk_norev(@data[0]);
 $code.=<<___;
 	eor	@data[1].16b,@data[1].16b,@data[0].16b
 ___
-	&encrypt_1blk_norev(@data[1],$rks1);
+	&encrypt_1blk_norev(@data[1]);
 	&rev32(@data[0],@data[0]);
 
 $code.=<<___;
 	eor	@data[2].16b,@data[2].16b,@data[1].16b
 ___
-	&encrypt_1blk_norev(@data[2],$rks1);
+	&encrypt_1blk_norev(@data[2]);
 	&rev32(@data[1],@data[1]);
 $code.=<<___;
 	eor	@data[3].16b,@data[3].16b,@data[2].16b
 ___
-	&encrypt_1blk_norev(@data[3],$rks1);
+	&encrypt_1blk_norev(@data[3]);
 	&rev32(@data[2],@data[2]);
 	&rev32(@data[3],@data[3]);
 $code.=<<___;
@@ -880,7 +876,7 @@ $code.=<<___;
 	eor	$ivec0.16b,$ivec0.16b,@data[0].16b
 ___
 	&rev32($ivec0,$ivec0);
-	&encrypt_1blk($ivec0,$rks1);
+	&encrypt_1blk($ivec0);
 $code.=<<___;
 	st1	{$ivec0.16b},[$outp],#16
 	b	1b
@@ -975,7 +971,7 @@ $code.=<<___;
 	st1	{$data[0].16b}, [$ivp]
 ___
 	&rev32(@datax[0],@data[0]);
-	&encrypt_1blk(@datax[0],$rks1);
+	&encrypt_1blk(@datax[0]);
 $code.=<<___;
 	eor	@datax[0].16b,@datax[0].16b,$ivec1.16b
 	st1	{@datax[0].16b},[$outp],#16
@@ -1055,7 +1051,7 @@ $code.=<<___;
 	// fast processing for one single block without
 	// context saving overhead
 ___
-	&encrypt_1blk($ivec,$rks1);
+	&encrypt_1blk($ivec);
 $code.=<<___;
 	ld1	{@data[0].16b},[$inp]
 	eor	@data[0].16b,@data[0].16b,$ivec.16b
@@ -1135,7 +1131,7 @@ $code.=<<___;
 	mov	$ivec.s[2],$word2
 	mov	$ivec.s[3],$ctr
 ___
-	&encrypt_1blk($ivec,$rks1);
+	&encrypt_1blk($ivec);
 $code.=<<___;
 	ld1	{@data[0].16b},[$inp]
 	eor	@data[0].16b,@data[0].16b,$ivec.16b
@@ -1202,31 +1198,17 @@ ___
 # todo: encrypt_1blk=>delete rks
 
 {{{
-my ($inp,$outp,$rks1,$rks2)=("x0","x1","x3","x4");
-my ($blocks,$len)=("x2","x2");
+my ($rks1,$rks2)=("x3","x4");
+my ($blocks,$len)=("w2","w2");
 my $remain=("x7");
-my ($ptr,$counter)=("x12","w13");
-my ($wtmp0,$wtmp1,$wtmp2,$wtmp3)=("w8","w9","w10","w11");
-my ($xtmp0,$xtmp1,$xtmp2,$xtmp3)=("x8","x9","x10","x11");
-my ($word0,$word1,$word2,$word3)=("w14","w15","w16","w17");
 my @twx=map("x$_",(14..29));
 my $lastBlk=("x26");
 
 my @tweak=map("v$_",(0..7));
-my @vtmpx=map("v$_",(4..7));
-my @qtmp=map("q$_",(8..11));
-my @vtmp=map("v$_",(8..11));
-my ($rk0,$rk1)=("v12","v13");
-my ($rka,$rkb)=("v14","v15");
-my @data=map("v$_",(16..19));
-my @datax=map("v$_",(20..23));
-my ($vtmp4,$vtmp5)=("v24","v25");
 my $lastTweak=("v25");
-my ($MaskV,$TAHMatV,$TALMatV,$ATAHMatV,$ATALMatV,$ANDMaskV)=("v26","v27","v28","v29","v30","v31");
-my ($MaskQ,$TAHMatQ,$TALMatQ,$ATAHMatQ,$ATALMatQ,$ANDMaskQ)=("q26","q27","q28","q29","q30","q31");
-
 
 sub gen_xts_cipher() {
+	my $standard = shift;
 
 $code.=<<___;
 .globl    ${prefix}_xts_encrypt${standard}
@@ -1247,11 +1229,13 @@ ${prefix}_xts_encrypt${standard}:
     stp        d12, d13, [sp, #-0x10]!
     stp        d14, d15, [sp, #-0x10]!
     ld1    {@tweak[0].4s}, [$ivp]
+	mov	$rks,$rks2
 ___
     &load_sbox_matrix();
     &rev32(@tweak[0],@tweak[0]);
-    &encrypt_1blk(@tweak[0],$rks2);
+    &encrypt_1blk(@tweak[0]);
 $code.=<<___;
+	mov	$rks,$rks1
     and    $remain,$len,#0x0F
     // convert length into blocks
     lsr    $blocks,$len,4
@@ -1546,12 +1530,9 @@ $code.=<<___;
     ret
 .size    ${prefix}_xts_encrypt${standard},.-${prefix}_xts_encrypt${standard}
 ___
-
 } # end of gen_xts_cipher
-$standard="_gb";
-&gen_xts_do_cipher();
-$standard="";
-&gen_xts_do_cipher();
+&gen_xts_do_cipher("_gb");
+&gen_xts_do_cipher("");
 }}}
 
 ########################################
