@@ -26,6 +26,9 @@ open OUT,"| \"$^X\" $xlate $flavour \"$output\""
     or die "can't call $xlate: $!";
 *STDOUT=*OUT;
 
+push(@INC,"${dir}.");
+require "vpsm4-armv8-common.pl";
+
 $prefix="vpsm4";
 my @vtmp=map("v$_",(0..3));
 my @data=map("v$_",(4..7));

@@ -26,6 +26,9 @@ open OUT,"| \"$^X\" $xlate $flavour \"$output\""
     or die "can't call $xlate: $!";
 *STDOUT=*OUT;
 
+push(@INC,"${dir}.");
+require "vpsm4-armv8-common.pl";
+
 $prefix="vpsm4_ex";
 my ($inp,$outp,$blocks,$rks)=("x0","x1","w2","x3");
 my ($ptr,$counter)=("x12","w13");
