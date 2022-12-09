@@ -234,6 +234,11 @@ ___
 &gen_sm4_ecb($prefix);
 &gen_sm4_cbc($prefix);
 &gen_sm4_ctr($prefix);
+ # end of gen_xts_cipher
+$standard = "_gb";
+&gen_xts_cipher($prefix);
+$standard = "";
+&gen_xts_cipher($prefix);
 ########################################
 open SELF,$0;
 while(<SELF>) {

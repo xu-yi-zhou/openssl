@@ -198,7 +198,6 @@ ___
 &gen_sm4_cbc($prefix);
 &gen_sm4_ctr($prefix);
 
-{{{
 # x0: in
 # x1: out
 # x2: len
@@ -206,10 +205,8 @@ ___
 # x4: key2
 # x5: iv
 # x6: enc/dec
-# todo: encrypt_1blk=>delete rks
 sub gen_xts_cipher() {
 	my $prefix = shift;
-	my $standard = shift;
 
 	my ($inp,$outp)=("x0","x1");
 	my ($blocks,$len)=("w2","w2");
@@ -224,8 +221,7 @@ sub gen_xts_cipher() {
 	my @twx=map("x$_",(14..29));
 	my $lastBlk=("x26");
 
-	my @tweak=map("v$_",(16..23));
-	my $lastTweak=("v25");
+	my @tweak=map("v$_",(8..15));
 
 $code.=<<___;
 .globl	${prefix}_xts_encrypt${standard}
@@ -310,6 +306,7 @@ ___
 	&rbit(@tweak[2],@tweak[2]);
 	&rbit(@tweak[3],@tweak[3]);
 $code.=<<___;
+	// note @tweak[0..3] and @datax[0..3] are resuing the same register
 	eor @data[0].16b, @data[0].16b, @tweak[0].16b
 	eor @data[1].16b, @data[1].16b, @tweak[1].16b
 	eor @data[2].16b, @data[2].16b, @tweak[2].16b
@@ -321,6 +318,7 @@ ___
 	&rbit(@tweak[6],@tweak[6]);
 	&rbit(@tweak[7],@tweak[7]);
 $code.=<<___;
+	// note @tweak[4..7] and @vtmpx[0..3] are resuing the same register
 	eor @datax[0].16b, @datax[0].16b, @tweak[4].16b
 	eor @datax[1].16b, @datax[1].16b, @tweak[5].16b
 	eor @datax[2].16b, @datax[2].16b, @tweak[6].16b
@@ -337,11 +335,21 @@ ___
 	&transpose(@data,@vtmp);
 	&transpose(@datax,@vtmp);
 $code.=<<___;
-	bl	${prefix}_enc_8blks
+	bl	_vpsm4_enc_8blks
 ___
 	&transpose(@vtmp,@datax);
 	&transpose(@data,@datax);
+	&mov_reg_to_vec(@twx[0],@twx[1],@tweak[0]);
+	&mov_reg_to_vec(@twx[2],@twx[3],@tweak[1]);
+	&mov_reg_to_vec(@twx[4],@twx[5],@tweak[2]);
+	&mov_reg_to_vec(@twx[6],@twx[7],@tweak[3]);
+	&mov_reg_to_vec(@twx[8],@twx[9],@tweak[4]);
+	&mov_reg_to_vec(@twx[10],@twx[11],@tweak[5]);
+	&mov_reg_to_vec(@twx[12],@twx[13],@tweak[6]);
+	&mov_reg_to_vec(@twx[14],@twx[15],@tweak[7]);
 $code.=<<___;
+	// note @tweak[0..3] and @datax[0..3] are resuing the same register
+	// note @tweak[4..7] and @vtmpx[0..3] are resuing the same register
 	eor @vtmp[0].16b, @vtmp[0].16b, @tweak[0].16b
 	eor @vtmp[1].16b, @vtmp[1].16b, @tweak[1].16b
 	eor @vtmp[2].16b, @vtmp[2].16b, @tweak[2].16b
@@ -352,7 +360,7 @@ $code.=<<___;
 	eor @data[3].16b, @data[3].16b, @tweak[7].16b
 
 	// save the last tweak
-	mov $lastTweak.16b,@tweak[7].16b
+	st1	{@tweak[7].16b},[$ivp]
 	st1	{@vtmp[0].4s,@vtmp[1].4s,@vtmp[2].4s,@vtmp[3].4s},[$outp],#64
 	st1	{@data[0].4s,@data[1].4s,@data[2].4s,@data[3].4s},[$outp],#64
 	subs	$blocks,$blocks,#8
@@ -379,7 +387,7 @@ ___
 	&rev32(@data[3],@data[3]);
 	&transpose(@data,@vtmp);
 $code.=<<___;
-	bl	${prefix}_enc_4blks
+	bl	_vpsm4_enc_4blks
 ___
 	&transpose(@vtmp,@data);
 $code.=<<___;
@@ -393,7 +401,7 @@ $code.=<<___;
 	mov @tweak[1].16b,@tweak[5].16b
 	mov @tweak[2].16b,@tweak[6].16b
 	// save the last tweak
-	mov $lastTweak.16b,@tweak[3].16b
+	st1	{@tweak[3].16b},[$ivp]
 1:
 	// process last block
 	cmp	$blocks,#1
@@ -411,7 +419,7 @@ $code.=<<___;
 	eor @data[0].16b, @data[0].16b, @tweak[0].16b
 	st1	{@data[0].4s},[$outp],#16
 	// save the last tweak
-	mov $lastTweak.16b,@tweak[0].16b
+	st1	{@tweak[0].16b},[$ivp]
 	b	100f
 1:  // process last 2 blocks
 	cmp	$blocks,#2
@@ -428,7 +436,7 @@ ___
 	&rev32(@data[1],@data[1]);
 	&transpose(@data,@vtmp);
 $code.=<<___;
-	bl	${prefix}_enc_4blks
+	bl	_vpsm4_enc_4blks
 ___
 	&transpose(@vtmp,@data);
 $code.=<<___;
@@ -436,7 +444,7 @@ $code.=<<___;
 	eor @vtmp[1].16b, @vtmp[1].16b, @tweak[1].16b
 	st1	{@vtmp[0].4s,@vtmp[1].4s},[$outp],#32
 	// save the last tweak
-	mov $lastTweak.16b,@tweak[1].16b
+	st1	{@tweak[1].16b},[$ivp]
 	b	100f
 1:  // process last 3 blocks
 	ld1	{@data[0].4s,@data[1].4s,@data[2].4s},[$inp],#48
@@ -454,7 +462,7 @@ ___
 	&rev32(@data[2],@data[2]);
 	&transpose(@data,@vtmp);
 $code.=<<___;
-	bl	${prefix}_enc_4blks
+	bl	_vpsm4_enc_4blks
 ___
 	&transpose(@vtmp,@data);
 $code.=<<___;
@@ -463,7 +471,7 @@ $code.=<<___;
 	eor @vtmp[2].16b, @vtmp[2].16b, @tweak[2].16b
 	st1	{@vtmp[0].4s,@vtmp[1].4s,@vtmp[2].4s},[$outp],#48
 	// save the last tweak
-	mov $lastTweak.16b,@tweak[2].16b
+	st1	{@tweak[2].16b},[$ivp]
 100:
 	cmp $remain,0
 	b.eq .return${standard}
@@ -471,10 +479,11 @@ $code.=<<___;
 // This brance calculates the last two tweaks, 
 // while the encryption/decryption length is larger than 32
 .last_2blks_tweak${standard}:
+	ld1	{@tweak[7].16b},[$ivp]
 ___
-	&rev32_armeb($lastTweak,$lastTweak);
-	&compute_tweak_vec($lastTweak,@tweak[1]);
-	&compute_tweak_vec(@tweak[1],@tweak[2]);
+	&rev32_armeb(@tweak[7],@tweak[7]);
+	&compute_tweak_vec(@tweak[1],@tweak[7]);
+	&compute_tweak_vec(@tweak[2],@tweak[1]);
 $code.=<<___;
 	b .check_dec${standard}
 
@@ -485,7 +494,7 @@ $code.=<<___;
 	mov @tweak[1].16b,@tweak[0].16b
 ___
 	&rev32_armeb(@tweak[1],@tweak[1]);
-	&compute_tweak_vec(@tweak[1],@tweak[2]);
+	&compute_tweak_vec(@tweak[2],@tweak[1]);
 $code.=<<___;
 	b .check_dec${standard}
 
@@ -548,9 +557,11 @@ $code.=<<___;
 .size	${prefix}_xts_encrypt${standard},.-${prefix}_xts_encrypt${standard}
 ___
 } # end of gen_xts_cipher
-&gen_xts_cipher($prefix,"_gb");
-&gen_xts_cipher($prefix,"");
-}}}
+$standard = "_gb";
+&gen_xts_cipher($prefix);
+$standard = "";
+&gen_xts_cipher($prefix);
+
 
 ########################################
 open SELF,$0;
