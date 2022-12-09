@@ -22,6 +22,7 @@
 
 ($inp,$outp,$blocks,$rks)=("x0","x1","w2","x3");
 ($tmpw,$tmp,$wtmp0,$wtmp1,$wtmp2)=("w6","x6","w7","w8","w9");
+($xtmp1,$xtmp2)=("x8","x9");
 ($ptr,$counter)=("x10","w11");
 ($word0,$word1,$word2,$word3)=("w12","w13","w14","w15");
 
@@ -985,31 +986,17 @@ $code.=<<___;
 ___
 }
 
-# x0: in
-# x1: out
-# x2: len
-# x3: key1
-# x4: key2
-# x5: iv
-# x6: enc/dec
 sub gen_xts_cipher() {
 	my $prefix = shift;
 
-	my ($inp,$outp)=("x0","x1");
 	my ($blocks,$len)=("w2","w2");
-	my ($rks,$rks1,$rks2)=("x3","x3","x4");
-	my ($ivp,$enc)=("x5","w6");
-	my $remain=("w7");
-	my ($tmpw,$tmp,$wtmp0,$wtmp1,$wtmp2)=("w8","x8","w9","w10","w11");
-	my ($xtmp1,$xtmp2)=("x10","x11");
-	my ($ptr,$counter)=("x12","w13");
-	my ($word0,$word1,$word2,$word3)=("w14","w15","w16","w17");
-
-	my @twx=map("x$_",(14..29));
+	my ($rks,$rks1,$rks2,$ivp)=("x3","x3","x4","x5");
+	my @twx=map("x$_",(12..27));
 	my $lastBlk=("x26");
+	my $enc=("w28");
+	my $remain=("w29");
 
 	my @tweak=map("v$_",(8..15));
-
 $code.=<<___;
 .globl	${prefix}_xts_encrypt${standard}
 .type	${prefix}_xts_encrypt${standard},%function
@@ -1029,6 +1016,7 @@ ${prefix}_xts_encrypt${standard}:
 	stp		d12, d13, [sp, #-0x10]!
 	stp		d14, d15, [sp, #-0x10]!
 	ld1	{@tweak[0].4s}, [$ivp]
+	mov	$enc,w6
 	mov	$rks,$rks2
 ___
 	&load_sbox();
@@ -1064,95 +1052,8 @@ ___
 	&compute_tweak(@twx[8],@twx[9],@twx[10],@twx[11]);
 	&compute_tweak(@twx[10],@twx[11],@twx[12],@twx[13]);
 	&compute_tweak(@twx[12],@twx[13],@twx[14],@twx[15]);
+	&gen_sm4_xts_8blocks();
 $code.=<<___;
-.Lxts_8_blocks_process${standard}:
-	cmp	$blocks,#8
-___
-	&mov_reg_to_vec(@twx[0],@twx[1],@tweak[0]);
-	&compute_tweak(@twx[14],@twx[15],@twx[0],@twx[1]);
-	&mov_reg_to_vec(@twx[2],@twx[3],@tweak[1]);
-	&compute_tweak(@twx[0],@twx[1],@twx[2],@twx[3]);
-	&mov_reg_to_vec(@twx[4],@twx[5],@tweak[2]);
-	&compute_tweak(@twx[2],@twx[3],@twx[4],@twx[5]);
-	&mov_reg_to_vec(@twx[6],@twx[7],@tweak[3]);
-	&compute_tweak(@twx[4],@twx[5],@twx[6],@twx[7]);
-	&mov_reg_to_vec(@twx[8],@twx[9],@tweak[4]);
-	&compute_tweak(@twx[6],@twx[7],@twx[8],@twx[9]);
-	&mov_reg_to_vec(@twx[10],@twx[11],@tweak[5]);
-	&compute_tweak(@twx[8],@twx[9],@twx[10],@twx[11]);
-	&mov_reg_to_vec(@twx[12],@twx[13],@tweak[6]);
-	&compute_tweak(@twx[10],@twx[11],@twx[12],@twx[13]);
-	&mov_reg_to_vec(@twx[14],@twx[15],@tweak[7]);
-	&compute_tweak(@twx[12],@twx[13],@twx[14],@twx[15]);
-$code.=<<___;
-	b.lt	.Lxts_4_blocks_process${standard}
-	ld1 {@data[0].4s,@data[1].4s,@data[2].4s,@data[3].4s},[$inp],#64
-___
-	&rbit(@tweak[0],@tweak[0]);
-	&rbit(@tweak[1],@tweak[1]);
-	&rbit(@tweak[2],@tweak[2]);
-	&rbit(@tweak[3],@tweak[3]);
-$code.=<<___;
-	// note @tweak[0..3] and @datax[0..3] are resuing the same register
-	eor @data[0].16b, @data[0].16b, @tweak[0].16b
-	eor @data[1].16b, @data[1].16b, @tweak[1].16b
-	eor @data[2].16b, @data[2].16b, @tweak[2].16b
-	eor @data[3].16b, @data[3].16b, @tweak[3].16b
-	ld1	{@datax[0].4s,$datax[1].4s,@datax[2].4s,@datax[3].4s},[$inp],#64
-___
-	&rbit(@tweak[4],@tweak[4]);
-	&rbit(@tweak[5],@tweak[5]);
-	&rbit(@tweak[6],@tweak[6]);
-	&rbit(@tweak[7],@tweak[7]);
-$code.=<<___;
-	// note @tweak[4..7] and @vtmpx[0..3] are resuing the same register
-	eor @datax[0].16b, @datax[0].16b, @tweak[4].16b
-	eor @datax[1].16b, @datax[1].16b, @tweak[5].16b
-	eor @datax[2].16b, @datax[2].16b, @tweak[6].16b
-	eor @datax[3].16b, @datax[3].16b, @tweak[7].16b
-___
-	&rev32(@data[0],@data[0]);
-	&rev32(@data[1],@data[1]);
-	&rev32(@data[2],@data[2]);
-	&rev32(@data[3],@data[3]);
-	&rev32(@datax[0],@datax[0]);
-	&rev32(@datax[1],@datax[1]);
-	&rev32(@datax[2],@datax[2]);
-	&rev32(@datax[3],@datax[3]);
-	&transpose(@data,@vtmp);
-	&transpose(@datax,@vtmp);
-$code.=<<___;
-	bl	_vpsm4_enc_8blks
-___
-	&transpose(@vtmp,@datax);
-	&transpose(@data,@datax);
-	&mov_reg_to_vec(@twx[0],@twx[1],@tweak[0]);
-	&mov_reg_to_vec(@twx[2],@twx[3],@tweak[1]);
-	&mov_reg_to_vec(@twx[4],@twx[5],@tweak[2]);
-	&mov_reg_to_vec(@twx[6],@twx[7],@tweak[3]);
-	&mov_reg_to_vec(@twx[8],@twx[9],@tweak[4]);
-	&mov_reg_to_vec(@twx[10],@twx[11],@tweak[5]);
-	&mov_reg_to_vec(@twx[12],@twx[13],@tweak[6]);
-	&mov_reg_to_vec(@twx[14],@twx[15],@tweak[7]);
-$code.=<<___;
-	// note @tweak[0..3] and @datax[0..3] are resuing the same register
-	// note @tweak[4..7] and @vtmpx[0..3] are resuing the same register
-	eor @vtmp[0].16b, @vtmp[0].16b, @tweak[0].16b
-	eor @vtmp[1].16b, @vtmp[1].16b, @tweak[1].16b
-	eor @vtmp[2].16b, @vtmp[2].16b, @tweak[2].16b
-	eor @vtmp[3].16b, @vtmp[3].16b, @tweak[3].16b
-	eor @data[0].16b, @data[0].16b, @tweak[4].16b
-	eor @data[1].16b, @data[1].16b, @tweak[5].16b
-	eor @data[2].16b, @data[2].16b, @tweak[6].16b
-	eor @data[3].16b, @data[3].16b, @tweak[7].16b
-
-	// save the last tweak
-	st1	{@tweak[7].16b},[$ivp]
-	st1	{@vtmp[0].4s,@vtmp[1].4s,@vtmp[2].4s,@vtmp[3].4s},[$outp],#64
-	st1	{@data[0].4s,@data[1].4s,@data[2].4s,@data[3].4s},[$outp],#64
-	subs	$blocks,$blocks,#8
-	b.gt	.Lxts_8_blocks_process${standard}
-	b	100f
 .Lxts_4_blocks_process${standard}:
 	cmp	$blocks,#4
 	b.lt	1f
@@ -1343,4 +1244,13 @@ $code.=<<___;
 	ret
 .size	${prefix}_xts_encrypt${standard},.-${prefix}_xts_encrypt${standard}
 ___
+} # end of gen_xts_cipher
+
+sub gen_sm4_xts() {
+	my @tweak = shift;
+
+	$standard = "_gb";
+	&gen_xts_cipher($prefix,@tweak);
+	$standard = "";
+	&gen_xts_cipher($prefix,@tweakv);
 }
