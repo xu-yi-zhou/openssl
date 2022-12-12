@@ -428,10 +428,10 @@ sub load_sbox () {
 
 $code.=<<___;
 	adr	$ptr,.Lsbox
-	ld1	{@sbox[0].4s,@sbox[1].4s,@sbox[2].4s,@sbox[3].4s},[$ptr],#64
-	ld1	{@sbox[4].4s,@sbox[5].4s,@sbox[6].4s,@sbox[7].4s},[$ptr],#64
-	ld1	{@sbox[8].4s,@sbox[9].4s,@sbox[10].4s,@sbox[11].4s},[$ptr],#64
-	ld1	{@sbox[12].4s,@sbox[13].4s,@sbox[14].4s,@sbox[15].4s},[$ptr]
+	ld1	{@sbox[0].16b,@sbox[1].16b,@sbox[2].16b,@sbox[3].16b},[$ptr],#64
+	ld1	{@sbox[4].16b,@sbox[5].16b,@sbox[6].16b,@sbox[7].16b},[$ptr],#64
+	ld1	{@sbox[8].16b,@sbox[9].16b,@sbox[10].16b,@sbox[11].16b},[$ptr],#64
+	ld1	{@sbox[12].16b,@sbox[13].16b,@sbox[14].16b,@sbox[15].16b},[$ptr]
 ___
 }
 
@@ -470,9 +470,9 @@ _vpsm4_consts:
 	.long 0xA0A7AEB5, 0xBCC3CAD1, 0xD8DFE6ED, 0xF4FB0209
 	.long 0x10171E25, 0x2C333A41, 0x484F565D, 0x646B7279
 .Lfk:
-	.dword 0x56aa3350a3b1bac6,0xb27022dc677d9197
+	.long 0xa3b1bac6, 0x56aa3350, 0x677d9197, 0xb27022dc
 .Lshuffles:
-	.dword 0x0B0A090807060504,0x030201000F0E0D0C
+	.long 0x07060504, 0x0B0A0908, 0x0F0E0D0C, 0x03020100
 
 .size	_vpsm4_consts,.-_vpsm4_consts
 ___
