@@ -471,16 +471,6 @@ ___
 
 sub SVE_TRANSFORMS() {
 $code.=<<___;
-#ifdef	__AARCH64EB__
-	rev	@x[0],@x[0]
-	rev	@x[2],@x[2]
-	rev	@x[4],@x[4]
-	rev	@x[6],@x[6]
-	rev	@x[8],@x[8]
-	rev	@x[10],@x[10]
-	rev	@x[12],@x[12]
-	rev	@x[14],@x[14]
-#endif
 	.if mixin == 1
 		add	@K[6],@K[6],#1
 	.endif
