@@ -44,9 +44,9 @@ static int cipher_hw_sm4_xts_generic_initkey(PROV_CIPHER_CTX *ctx,
     } else
 #endif /* HWSM4_CAPABLE */
 #ifdef VPSM4_EX_CAPABLE
-    stream = vpsm4_ex_xts_encrypt;
-    stream_gb = vpsm4_ex_xts_encrypt_gb;
     if (VPSM4_EX_CAPABLE) {
+    	stream = vpsm4_ex_xts_encrypt;
+    	stream_gb = vpsm4_ex_xts_encrypt_gb;
         XTS_SET_KEY_FN(vpsm4_ex_set_encrypt_key, vpsm4_ex_set_decrypt_key,
                        vpsm4_ex_encrypt, vpsm4_ex_decrypt, stream, stream_gb);
         return 1;
@@ -54,6 +54,8 @@ static int cipher_hw_sm4_xts_generic_initkey(PROV_CIPHER_CTX *ctx,
 #endif /* VPSM4_EX_CAPABLE */
 #ifdef VPSM4_CAPABLE
     if (VPSM4_CAPABLE) {
+    	stream = vpsm4_xts_encrypt;
+    	stream_gb = vpsm4_xts_encrypt_gb;
         XTS_SET_KEY_FN(vpsm4_set_encrypt_key, vpsm4_set_decrypt_key,
                        vpsm4_encrypt, vpsm4_decrypt, stream, stream_gb);
         return 1;

@@ -73,6 +73,12 @@ void vpsm4_ecb_encrypt(const unsigned char *in, unsigned char *out,
 void vpsm4_ctr32_encrypt_blocks(const unsigned char *in, unsigned char *out,
                                 size_t len, const void *key,
                                 const unsigned char ivec[16]);
+void vpsm4_xts_encrypt(const unsigned char *in, unsigned char *out,
+                       size_t len, const SM4_KEY *key1, const SM4_KEY *key2,
+                       const unsigned char ivec[16], const int enc);
+void vpsm4_xts_encrypt_gb(const unsigned char *in, unsigned char *out,
+                          size_t len, const SM4_KEY *key1, const SM4_KEY *key2,
+                          const unsigned char ivec[16], const int enc);
 # endif /* VPSM4_CAPABLE */
 
 # ifdef VPSM4_EX_CAPABLE
