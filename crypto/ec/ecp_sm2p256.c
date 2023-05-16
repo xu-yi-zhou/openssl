@@ -18,6 +18,7 @@
 #include <openssl/err.h>
 #include "crypto/bn.h"
 #include "ec_local.h"
+#include "internal/constant_time.h"
 
 #if defined(__GNUC__)
 # define ALIGN32        __attribute((aligned(32)))
@@ -105,14 +106,6 @@ void ecp_sm2p256_mul(BN_ULONG *r, const BN_ULONG *a, const BN_ULONG *b);
 /* Modular sqr: r = a^2 mod p */
 void ecp_sm2p256_sqr(BN_ULONG *r, const BN_ULONG *a);
 
-static ossl_inline BN_ULONG is_zero(BN_ULONG a)
-{
-    a |= (0 - a);
-    a = ~a;
-    a >>= BN_BITS2 - 1;
-    return a;
-}
-
 static ossl_inline BN_ULONG is_zeros(const BN_ULONG *a)
 {
     BN_ULONG res;
@@ -122,7 +115,7 @@ static ossl_inline BN_ULONG is_zeros(const BN_ULONG *a)
     res |= a[2] ^ 0;
     res |= a[3] ^ 0;
 
-    return is_zero(res);
+    return constant_time_is_zero_64(res);
 }
 
 static ossl_inline int is_equal(const BN_ULONG *a, const BN_ULONG *b)
@@ -134,7 +127,7 @@ static ossl_inline int is_equal(const BN_ULONG *a, const BN_ULONG *b)
     res |= a[2] ^ b[2];
     res |= a[3] ^ b[3];
 
-    return is_zero(res);
+    return constant_time_is_zero_64(res);
 }
 
 static ossl_inline int is_greater(const BN_ULONG *a, const BN_ULONG *b)
@@ -168,6 +161,7 @@ static ossl_inline int is_greater(const BN_ULONG *a, const BN_ULONG *b)
         BN_ULONG v[4] ALIGN32;                          \
         BN_ULONG x1[4] ALIGN32 = {1, 0, 0, 0};          \
         BN_ULONG x2[4] ALIGN32 = {0};                   \
+                                                        \
         if (is_zeros(in))                               \
             return;                                     \
         memcpy(u, in, 32);                              \
