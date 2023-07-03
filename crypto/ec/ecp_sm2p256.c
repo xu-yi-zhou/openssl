@@ -157,46 +157,46 @@ static ossl_inline int is_greater(const BN_ULONG *a, const BN_ULONG *b)
 /* Binary algorithm for inversion in Fp */
 #define BN_MOD_INV(out, in, fadd, fsub, mod, mod_div_2) \
 {                                                       \
-        BN_ULONG u[4] ALIGN32;                          \
-        BN_ULONG v[4] ALIGN32;                          \
-        BN_ULONG x1[4] ALIGN32 = {1, 0, 0, 0};          \
-        BN_ULONG x2[4] ALIGN32 = {0};                   \
+    BN_ULONG u[4] ALIGN32;                              \
+    BN_ULONG v[4] ALIGN32;                              \
+    BN_ULONG x1[4] ALIGN32 = {1, 0, 0, 0};              \
+    BN_ULONG x2[4] ALIGN32 = {0};                       \
                                                         \
-        if (is_zeros(in))                               \
-            return;                                     \
-        memcpy(u, in, 32);                              \
-        memcpy(v, mod, 32);                             \
-        while (!is_one(u) && !is_one(v)) {              \
-            while (is_even(u)) {                        \
-                bn_rshift1(u);                          \
-                if (is_even(x1)) {                      \
-                    bn_rshift1(x1);                     \
-                } else {                                \
-                    bn_rshift1(x1);                     \
-                    fadd(x1, x1, mod_div_2);            \
-                }                                       \
-            }                                           \
-            while (is_even(v)) {                        \
-                bn_rshift1(v);                          \
-                if (is_even(x2)) {                      \
-                    bn_rshift1(x2);                     \
-                } else {                                \
-                    bn_rshift1(x2);                     \
-                    fadd(x2, x2, mod_div_2);            \
-                }                                       \
-            }                                           \
-            if (is_greater(u, v) == 1) {                \
-                fsub(u, u, v);                          \
-                fsub(x1, x1, x2);                       \
+    if (is_zeros(in))                                   \
+        return;                                         \
+    memcpy(u, in, 32);                                  \
+    memcpy(v, mod, 32);                                 \
+    while (!is_one(u) && !is_one(v)) {                  \
+        while (is_even(u)) {                            \
+            bn_rshift1(u);                              \
+            if (is_even(x1)) {                          \
+                bn_rshift1(x1);                         \
             } else {                                    \
-                fsub(v, v, u);                          \
-                fsub(x2, x2, x1);                       \
+                bn_rshift1(x1);                         \
+                fadd(x1, x1, mod_div_2);                \
             }                                           \
         }                                               \
-        if (is_one(u))                                  \
-            memcpy(out, x1, 32);                        \
-        else                                            \
-            memcpy(out, x2, 32);                        \
+        while (is_even(v)) {                            \
+            bn_rshift1(v);                              \
+            if (is_even(x2)) {                          \
+                bn_rshift1(x2);                         \
+            } else {                                    \
+                bn_rshift1(x2);                         \
+                fadd(x2, x2, mod_div_2);                \
+            }                                           \
+        }                                               \
+        if (is_greater(u, v) == 1) {                    \
+            fsub(u, u, v);                              \
+            fsub(x1, x1, x2);                           \
+        } else {                                        \
+            fsub(v, v, u);                              \
+            fsub(x2, x2, x1);                           \
+        }                                               \
+    }                                                   \
+    if (is_one(u))                                      \
+        memcpy(out, x1, 32);                            \
+    else                                                \
+        memcpy(out, x2, 32);                            \
 }
 
 /* Modular inverse |out| = |in|^(-1) mod |p|. */
