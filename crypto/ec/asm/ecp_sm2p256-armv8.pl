@@ -478,7 +478,15 @@ $code.=<<___;
 	stp $s0,$s1,[x0]
 	stp $s2,$s3,[x0,#16]
 .endm
+___
+}
 
+{
+my ($s0,$s1,$s2,$s3,$s4,$s5,$s6,$s7)=map("x$_",(7..14));
+my ($t0,$t1,$t2,$t3)=map("x$_",(3..6));
+my ($t4,$t5,$t6,$t7,$t8)=map("x$_",(15..19));
+
+$code.=<<___;
 // void ecp_sm2p256_mul(BN_ULONG *r, const BN_ULONG *a, const BN_ULONG *b);
 .globl	ecp_sm2p256_mul
 .type	ecp_sm2p256_mul,%function
@@ -497,143 +505,136 @@ ecp_sm2p256_mul:
 	ldp $s6,$s7,[x2,#16]
 
 ### multiplication ###
-	# ===============================
-	#                 $s7 $s6 $s5 $s4
-	# *               $s3 $s2 $s1 $s0
-	# -------------------------------
-	# +               $s0 $s0 $s0 $s0
-	#                  *   *   *   *
-	#                 $s7 $s6 $s5 $s4
-	#             $s1 $s1 $s1 $s1
-	#              *   *   *   *
-	#             $s7 $s6 $s5 $s4
-	#         $s2 $s2 $s2 $s2
-	#          *   *   *   *
-	#         $s7 $s6 $s5 $s4
-	#     $s3 $s3 $s3 $s3
-	#      *   *   *   *
-	#     $s7 $s6 $s5 $s4
-	# -------------------------------
-	# $s7 $s6 $s5 $s4 $s3 $s2 $s1 $s0
-	# ===============================
+	# ========================
+	#             s3 s2 s1 s0
+	# *           s7 s6 s5 s4
+	# ------------------------
+	# +           s0 s0 s0 s0
+	#              *  *  *  *
+	#             s7 s6 s5 s4
+	#          s1 s1 s1 s1
+	#           *  *  *  *
+	#          s7 s6 s5 s4
+	#       s2 s2 s2 s2
+	#        *  *  *  *
+	#       s7 s6 s5 s4
+	#    s3 s3 s3 s3
+	#     *  *  *  *
+	#    s7 s6 s5 s4
+	# ------------------------
+	# s7 s6 s5 s4 s3 s2 s1 s0
+	# ========================
 
-### $s0*$s4 ###
-	mul x16,$s0,$s4
-	umulh x5,$s0,$s4
-	eor x6,x6,x6
+### s0*s4 ###
+	mul $t5,$s0,$s4
+	umulh $t2,$s0,$s4
 
-### $s1*$s4 + $s0*$s5 ###
-	mul x3,$s1,$s4
-	umulh x4,$s1,$s4
-	adds x5,x5,x3
-	adcs x6,x6,x4
-	eor x15,x15,x15
+### s1*s4 + s0*s5 ###
+	mul $t0,$s1,$s4
+	umulh $t1,$s1,$s4
+	adds $t2,$t2,$t0
+	adcs $t3,$t1,xzr
 
-	mul x3,$s0,$s5
-	umulh x4,$s0,$s5
-	adds x5,x5,x3
-	adcs x6,x6,x4
-	adcs x15,x15,xzr
-	mov x17,x5
-	eor x5,x5,x5
+	mul $t0,$s0,$s5
+	umulh $t1,$s0,$s5
+	adds $t2,$t2,$t0
+	adcs $t3,$t3,$t1
+	adcs $t4,xzr,xzr
+	mov $t6,$t2
 
-### $s2 * $s4 + $s1 * $s5 + $s0 *$s6 ###
-	mul x3,$s2,$s4
-	umulh x4,$s2,$s4
-	adds x6,x6,x3
-	adcs x15,x15,x4
+### s2*s4 + s1*s5 + s0*s6 ###
+	mul $t0,$s2,$s4
+	umulh $t1,$s2,$s4
+	adds $t3,$t3,$t0
+	adcs $t4,$t4,$t1
 
-	mul x3,$s1,$s5
-	umulh x4,$s1,$s5
-	adds x6,x6,x3
-	adcs x15,x15,x4
-	adcs x5,x5,xzr
+	mul $t0,$s1,$s5
+	umulh $t1,$s1,$s5
+	adds $t3,$t3,$t0
+	adcs $t4,$t4,$t1
+	adcs $t2,xzr,xzr
 
-	mul x3,$s0,$s6
-	umulh x4,$s0,$s6
-	adds x6,x6,x3
-	adcs x15,x15,x4
-	adcs x5,x5,xzr
-	mov x18,x6
-	eor x6,x6,x6
+	mul $t0,$s0,$s6
+	umulh $t1,$s0,$s6
+	adds $t3,$t3,$t0
+	adcs $t4,$t4,$t1
+	adcs $t2,$t2,xzr
+	mov $t7,$t3
 
-### $s3*$s4 + $s2*$s5 + $s1*$s6 + $s0*$s7 ###
-	mul x3,$s3,$s4
-	umulh x4,$s3,$s4
-	adds x15,x15,x3
-	adcs x5,x5,x4
-	adcs x6,x6,xzr
+### s3*s4 + s2*s5 + s1*s6 + s0*s7 ###
+	mul $t0,$s3,$s4
+	umulh $t1,$s3,$s4
+	adds $t4,$t4,$t0
+	adcs $t2,$t2,$t1
+	adcs $t3,xzr,xzr
 
-	mul x3,$s2,$s5
-	umulh x4,$s2,$s5
-	adds x15,x15,x3
-	adcs x5,x5,x4
-	adcs x6,x6,xzr
+	mul $t0,$s2,$s5
+	umulh $t1,$s2,$s5
+	adds $t4,$t4,$t0
+	adcs $t2,$t2,$t1
+	adcs $t3,$t3,xzr
 
-	mul x3,$s1,$s6
-	umulh x4,$s1,$s6
-	adds x15,x15,x3
-	adcs x5,x5,x4
-	adcs x6,x6,xzr
+	mul $t0,$s1,$s6
+	umulh $t1,$s1,$s6
+	adds $t4,$t4,$t0
+	adcs $t2,$t2,$t1
+	adcs $t3,$t3,xzr
 
-	mul x3,$s0 ,$s7
-	umulh x4,$s0,$s7
-	adds x15,x15,x3
-	adcs x5,x5,x4
-	adcs x6,x6,xzr
-	mov x19,x15
-	eor x15,x15,x15
+	mul $t0,$s0 ,$s7
+	umulh $t1,$s0,$s7
+	adds $t4,$t4,$t0
+	adcs $t2,$t2,$t1
+	adcs $t3,$t3,xzr
+	mov $t8,$t4
 
-### $s3*$s5 + $s2*$s6 + $s1*$s7 ###
-	mul x3,$s3,$s5
-	umulh x4,$s3,$s5
-	adds x5,x5,x3
-	adcs x6,x6,x4
-	# carry
-	adcs x15,x15,xzr
+### s3*s5 + s2*s6 + s1*s7 ###
+	mul $t0,$s3,$s5
+	umulh $t1,$s3,$s5
+	adds $t2,$t2,$t0
+	adcs $t3,$t3,$t1
+	adcs $t4,xzr,xzr
 
-	mul x3,$s2,$s6
-	umulh x4,$s2,$s6
-	adds x5,x5,x3
-	adcs x6,x6,x4
-	adcs x15,x15,xzr
+	mul $t0,$s2,$s6
+	umulh $t1,$s2,$s6
+	adds $t2,$t2,$t0
+	adcs $t3,$t3,$t1
+	adcs $t4,$t4,xzr
 
-	mul x3,$s1,$s7
-	umulh x4,$s1,$s7
-	adds x5,x5,x3
-	adcs x6,x6,x4
-	adcs x15,x15,xzr
-	mov $s4,x5
-	eor x5,x5,x5
+	mul $t0,$s1,$s7
+	umulh $t1,$s1,$s7
+	adds $t2,$t2,$t0
+	adcs $t3,$t3,$t1
+	adcs $t4,$t4,xzr
+	mov $s4,$t2
 
-### $s3*$s6 + $s2*$s7 ###
-	mul x3,$s3,$s6
-	umulh x4,$s3,$s6
-	adds x6,x6,x3
-	adcs x15,x15,x4
-	adcs x5,x5,xzr
+### s3*s6 + s2*s7 ###
+	mul $t0,$s3,$s6
+	umulh $t1,$s3,$s6
+	adds $t3,$t3,$t0
+	adcs $t4,$t4,$t1
+	adcs $t2,xzr,xzr
 
-	mul x3,$s2,$s7
-	umulh x4,$s2,$s7
-	adds x6,x6,x3
-	adcs x15,x15,x4
-	adcs x5,x5,xzr
-	mov $s5,x6
+	mul $t0,$s2,$s7
+	umulh $t1,$s2,$s7
+	adds $t3,$t3,$t0
+	adcs $t4,$t4,$t1
+	adcs $t2,$t2,xzr
+	mov $s5,$t3
 
-### $s3*$s7 ###
-	mul x3,$s3,$s7
-	umulh x4,$s3,$s7
-	adds x15,x15,x3
-	adcs x5,x5,x4
-	mov $s6,x15
-	mov $s7,x5
+### s3*s7 ###
+	mul $t0,$s3,$s7
+	umulh $t1,$s3,$s7
+	adds $t4,$t4,$t0
+	adcs $t2,$t2,$t1
+	mov $s6,$t4
+	mov $s7,$t2
 
-	mov $s0,x16
-	mov $s1,x17
-	mov $s2,x18
-	mov $s3,x19
+	mov $s0,$t5
+	mov $s1,$t6
+	mov $s2,$t7
+	mov $s3,$t8
 
-	# result of mul: $s7 $s6 $s5 $s4 $s3 $s2 $s1 $s0
+	# result of mul: s7 s6 s5 s4 s3 s2 s1 s0
 
 ### Reduction ###
 	RDC
@@ -662,27 +663,27 @@ ecp_sm2p256_sqr:
 	ldp $s6,$s7,[x1,#16]
 
 ### square ###
-	# ===============================
-	#                 $s7 $s6 $s5 $s4
-	# *               $s7 $s6 $s5 $s4
-	# -------------------------------
-	# +               $s4 $s4 $s4 $s4
-	#                  *   *   *   *
-	#                 $s7 $s6 $s5 $s4
-	#             $s5 $s5 $s5 $s5
-	#              *   *   *   *
-	#             $s7 $s6 $s5 $s4
-	#         $s6 $s6 $s6 $s6
-	#          *   *   *   *
-	#         $s7 $s6 $s5 $s4
-	#     $s7 $s7 $s7 $s7
-	#      *   *   *   *
-	#     $s7 $s6 $s5 $s4
-	# -------------------------------
-	# $s7 $s6 $s5 $s4 $s3 $s2 $s1 $s0
-	# ===============================
+	# ========================
+	#             s7 s6 s5 s4
+	# *           s7 s6 s5 s4
+	# ------------------------
+	# +           s4 s4 s4 s4
+	#              *  *  *  *
+	#             s7 s6 s5 s4
+	#          s5 s5 s5 s5
+	#           *  *  *  *
+	#          s7 s6 s5 s4
+	#       s6 s6 s6 s6
+	#        *  *  *  *
+	#       s7 s6 s5 s4
+	#    s7 s7 s7 s7
+	#     *  *  *  *
+	#    s7 s6 s5 s4
+	# ------------------------
+	# s7 s6 s5 s4 s3 s2 s1 s0
+	# ========================
 
-### $s1 <- $s4*$s5, $s2 <- carry ###
+### s1 <- s4*s5, s2 <- carry ###
 	mul $s1,$s4,$s5
 	umulh $s2,$s4,$s5
 	eor $s3,$s3,$s3
