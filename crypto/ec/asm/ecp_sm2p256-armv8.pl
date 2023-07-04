@@ -647,9 +647,10 @@ ecp_sm2p256_mul:
 
 ecp_sm2p256_sqr:
 	# Store scalar registers
-	stp	 x29,x30,[sp,#-64]!
+	stp	 x29,x30,[sp,#-80]!
 	add	 x29,sp,#0
 	stp	 x16,x17,[sp,#16]
+	stp	 x18,x19,[sp,#64]
 
 	# Load inputs
 	ldp $s4,$s5,[x1]
@@ -676,102 +677,88 @@ ecp_sm2p256_sqr:
 	# s7 s6 s5 s4 s3 s2 s1 s0
 	# ========================
 
-### s1 <- s4*s5, s2 <- carry ###
+### s4*s5 ###
 	mul $s1,$s4,$s5
 	umulh $s2,$s4,$s5
-	eor $s3,$s3,$s3
 
-### $s2 <- $s4*$s6 + carry($s2), $s3 <- carry ###
-	mul x3,$s6,$s4
+### s4*s6 ###
+	mul $t0,$s6,$s4
 	umulh $s3,$s6,$s4
-	adds $s2,$s2,x3
+	adds $s2,$s2,$t0
 	adcs $s3,$s3,xzr
-	eor $s0,$s0,$s0
 
-### $s3 <- $s4*$s7 + $s5*$s6 + carry($s3), $s0 <- carry ###
-	mul x3,$s7,$s4
-	umulh x4,$s7,$s4
-	adds $s3,$s3,x3
-	adcs $s0,$s0,x4
-	eor x5,x5,x5
+### s4*s7 + s5*s6 ###
+	mul $t0,$s7,$s4
+	umulh $t1,$s7,$s4
+	adds $s3,$s3,$t0
+	adcs $s0,$t1,xzr
 
-	mul x3,$s6,$s5
-	umulh x4,$s6,$s5
-	adds $s3,$s3,x3
-	adcs $s0,$s0,x4
-	adcs x5,xzr,xzr
+	mul $t0,$s6,$s5
+	umulh $t1,$s6,$s5
+	adds $s3,$s3,$t0
+	adcs $s0,$s0,$t1
+	adcs $t2,xzr,xzr
 
-### $s0 <- $s5*$s7 + carry($s0), rbx <- carry ###
-	mul x3,$s7,$s5
-	umulh x4,$s7,$s5
-	adds $s0,$s0,x3
-	adcs x5,x5,x4
-	eor x6,x6,x6
+### s5*s7 ###
+	mul $t0,$s7,$s5
+	umulh $t1,$s7,$s5
+	adds $s0,$s0,$t0
+	adcs $t2,$t2,$t1
 
-### rbx <- $s6*$s7 + carry(rbx), rcx <- carry ###
-	mul x3,$s7,$s6
-	umulh x4,$s7,$s6
-	adds x5,x5,x3
-	adcs x6,x6,x4
-	eor x15,x15,x15
+### s6*s7 ###
+	mul $t0,$s7,$s6
+	umulh $t1,$s7,$s6
+	adds $t2,$t2,$t0
+	adcs $t3,$t1,xzr
 
-### 2*$s0|1|2|3 ###
+### 2*(t3,t2,s0,s3,s2,s1) ###
 	adds $s1,$s1,$s1
 	adcs $s2,$s2,$s2
 	adcs $s3,$s3,$s3
 	adcs $s0,$s0,$s0
-	adcs x5,x5,x5
-	# update carry
-	adcs x6,x6,x6
-	adcs x15,xzr,xzr
+	adcs $t2,$t2,$t2
+	adcs $t3,$t3,$t3
+	adcs $t4,xzr,xzr
 
-### rbp <- $s4*$s4, carry <- rdi ###
-	mul x16,$s4,$s4
-	umulh x17,$s4,$s4
+### s4*s4 ###
+	mul $t5,$s4,$s4
+	umulh $t6,$s4,$s4
 
-### $s4 <- $s5*$s5, carry <- $s5 ###
+### s5*s5 ###
 	mul $s4,$s5,$s5
 	umulh $s5,$s5,$s5
 
-### $s6*$s6 ###
-	mul x3,$s6,$s6
-	umulh x4,$s6,$s6
+### s6*s6 ###
+	mul $t0,$s6,$s6
+	umulh $t1,$s6,$s6
 
-	# $s1 += carry($s4*$s4)
-	adds $s1,$s1,x17
-	# $s2 += $s5*$s5
+### s7*s7 ###
+	mul $t7,$s7,$s7
+	umulh $t8,$s7,$s7
+
+	adds $s1,$s1,$t6
 	adcs $s2,$s2,$s4
-	# $s3 += carry($s5*$s5)
 	adcs $s3,$s3,$s5
-	# $s4($s0) += $s6*$s6
-	adcs $s0,$s0,x3
-	# $s5(rbx) += carry($s6*$s6)
-	adcs x5,x5,x4
-	adcs x6,x6,xzr
-	adcs x15,x15,xzr
-
-### $s7*$s7 ###
-	mul x3,$s7,$s7
-	umulh x4,$s7,$s7
-	# $s6(rcx) += $s7*$s7
-	adds x6,x6,x3
-	# $s7(rsi) += carry($s7*$s7)
-	adcs x15,x15,x4
+	adcs $s0,$s0,$t0
+	adcs $t2,$t2,$t1
+	adcs $t3,$t3,$t7
+	adcs $t4,$t4,$t8
 
 	mov $s4,$s0
-	mov $s0,x16
-	mov $s5,x5
-	mov $s6,x6
-	mov $s7,x15
+	mov $s0,$t5
+	mov $s5,$t2
+	mov $s6,$t3
+	mov $s7,$t4
 
-	# result of mul: $s7 $s6 $s5 $s4 $s3 $s2 $s1 $s0
+	# result of mul: s7 s6 s5 s4 s3 s2 s1 s0
 
 ### Reduction ###
 	RDC
 
 	# Restore scalar registers
 	ldp x16,x17,[sp,#16]
-	ldp x29,x30,[sp],#64
+	ldp x18,x19,[sp,#64]
+	ldp x29,x30,[sp],#80
 
 	ret
 .size ecp_sm2p256_sqr,.-ecp_sm2p256_sqr
