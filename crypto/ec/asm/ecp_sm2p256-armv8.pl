@@ -92,6 +92,9 @@ ___
 
 {
 my ($s0,$s1,$s2,$s3,$s4,$s5,$s6,$s7)=map("x$_",(7..14));
+my ($a8,$a10,$a12,$a14,$a9,$a11,$a13,$a15)=map("x$_",(7..14));
+my ($t0,$t1,$t2,$t3)=map("x$_",(3..6));
+my ($t4,$t5,$t6,$t7,$t8)=map("x$_",(15..19));
 
 $code.=<<___;
 #include "arm_arch.h"
@@ -293,162 +296,146 @@ $code.=<<___;
 .size ecp_sm2p256_sub_mod_ord,.-ecp_sm2p256_sub_mod_ord
 
 .macro RDC
-	# r = a mod p256
-	# a = a15 | a14 | ... | a0, where ai are 32-bit quantities
-	# | a7  | a6  | a5  | a4  | a3  | a2  | a1  | a0  | (+)
-	# | a8  | a11 | a10 | a9  | a8  |   0 | a9  | a8  | (+)
-	# | a9  | a14 | a13 | a12 | a11 |   0 | a10 | a9  | (+)
-	# | a10 | a15 | a14 | a13 | a12 |   0 | a11 | a10 | (+)
-	# | a11 |   0 | a15 | a14 | a13 |   0 | a12 | a11 | (+)
-	# | a12 |   0 | a15 | a14 | a13 |   0 | a13 | a12 | (+)
+	# a = |  s7   | ... | s0  |, where si are 64-bit quantities
+	#   = |a15|a14| ... |a1|a0|, where ai are 32-bit quantities
+	# |    s7     |    s6     |    s5     |    s4     |
+	# | a15 | a14 | a13 | a12 | a11 | a10 | a9  | a8  |
+	# |    s3     |    s2     |    s1     |    s0     |
+	# | a7  | a6  | a5  | a4  | a3  | a2  | a1  | a0  |
+	# =================================================
+	# | a8  | a11 | a10 | a9  | a8  |   0 |    s4     | (+)
+	# | a9  | a15 |    s6     | a11 |   0 | a10 | a9  | (+)
+	# | a10 |   0 | a14 | a13 | a12 |   0 |    s5     | (+)
+	# | a11 |   0 |    s7     | a13 |   0 | a12 | a11 | (+)
+	# | a12 |   0 |    s7     | a13 |   0 |    s6     | (+)
 	# | a12 |   0 |   0 | a15 | a14 |   0 | a14 | a13 | (+)
 	# | a13 |   0 |   0 |   0 | a15 |   0 | a14 | a13 | (+)
-	# | a13 |   0 |   0 |   0 |   0 |   0 | a15 | a14 | (+)
-	# | a14 |   0 |   0 |   0 |   0 |   0 | a15 | a14 | (+)
+	# | a13 |   0 |   0 |   0 |   0 |   0 |    s7     | (+)
+	# | a14 |   0 |   0 |   0 |   0 |   0 |    s7     | (+)
 	# | a14 |   0 |   0 |   0 |   0 |   0 |   0 | a15 | (+)
 	# | a15 |   0 |   0 |   0 |   0 |   0 |   0 | a15 | (+)
 	# | a15 |   0 |   0 |   0 |   0 |   0 |   0 |   0 | (+)
-	# | a15 |   0 |   0 |   0 |   0 |   0 |   0 |   0 | (+)
+	# |    s7     |   0 |   0 |   0 |   0 |   0 |   0 | (+)
 	# |   0 |   0 |   0 |   0 |   0 | a8  |   0 |   0 | (-)
 	# |   0 |   0 |   0 |   0 |   0 | a9  |   0 |   0 | (-)
 	# |   0 |   0 |   0 |   0 |   0 | a13 |   0 |   0 | (-)
 	# |   0 |   0 |   0 |   0 |   0 | a14 |   0 |   0 | (-)
 	# | U[7]| U[6]| U[5]| U[4]| U[3]| U[2]| U[1]| U[0]|
-	# |	V[3]   |	V[2]   |   V[1]	|	V[0]   |
-	# until r < p256
-	# $s7 (a15|a14),$s6 (a13|a12),$s5 (a11|a10),$s4 (a9|a8)
-	# $s3 (a7|a6),$s2 (a5|a4),$s1 (a3|a2),$s0 (a1|a0)
+	# |    V[3]   |    V[2]   |    V[1]   |    V[0]   |
 
 	# 1. 64-bit addition
-	eor x3,x3,x3		 // to store all carry
-	eor x4,x4,x4
-	mov x5,$s6					// rcx <- $s6
-	mov x6,$s4					// rdx <- $s4
-	# a13 | a12
-	adds x5,x5,$s7						// rcx <- $s6 + $s7
-	adcs x4,xzr,xzr	// rax <- carry($s6+$s7)
-	adds x5,x5,$s7						// rcx <- $s6 + 2*$s7
-	adcs x4,x4,xzr
-	# a9 | a8
-	mov x15,x4					// rbx <- carry (rax)
-	adds x6,x6,x5		// rdx <- $s4 + $s6 + 2*$s7
-	adcs x15,x15,xzr
-	adds x6,x6,$s5						// rdx <- $s4 + $s5 + $s6 + 2*$s7
-	adcs x15,x15,xzr
+	# t2=s6+s7+s7
+	adds $t2,$s6,$s7
+	adcs $t1,xzr,xzr
+	adds $t2,$t2,$s7	
+	adcs $t1,$t1,xzr
+	# t3=s4+s5+t2
+	adds $t3,$s4,$t2
+	adcs $t4,$t1,xzr
+	adds $t3,$t3,$s5
+	adcs $t4,$t4,xzr
 	# sum
-	adds $s0,$s0,x6			// $s0 <- $s0 + $s4 + $s5 + $s6 + 2*$s7
-	adcs $s1,$s1,x15	 // $s1 <- $s1 + rbx + carry
-	adcs $s2,$s2,x5			// $s2 <- $s2 + $s6 + 2*$s7 + carry
+	adds $s0,$s0,$t3
+	adcs $s1,$s1,$t4
+	adcs $s2,$s2,$t2
 	adcs $s3,$s3,$s7
-	adcs x3,xzr,xzr
-	# add carry
-	adds $s3,$s3,x4
-	adcs x3,x3,xzr				// all carry
+	adcs $t0,xzr,xzr
+	adds $s3,$s3,$t1
+	adcs $t0,$t0,xzr
 
 	stp $s0,$s1,[sp,#32]
 	stp $s2,$s3,[sp,#48]
-	# 2. 4 -> 8  64-bit to 32-bit spread
-	mov x4,#0xffffffff
+
+	# 2. 64-bit to 32-bit spread
+	mov $t1,#0xffffffff
 	mov $s0,$s4
 	mov $s1,$s5
 	mov $s2,$s6
 	mov $s3,$s7
-	and $s0,$s0,x4				// a8
-	and $s1,$s1,x4				// a10
-	and $s2,$s2,x4				// a12
-	and $s3,$s3,x4				// a14
+	and $s0,$s0,$t1	// a8
+	and $s1,$s1,$t1	// a10
+	and $s2,$s2,$t1	// a12
+	and $s3,$s3,$t1	// a14
 	lsr $s4,$s4,#32	// a9
 	lsr $s5,$s5,#32	// a11
 	lsr $s6,$s6,#32	// a13
 	lsr $s7,$s7,#32	// a15
+
 	# 3. 32-bit addition
-	mov x4,$s3
-	add x4,x4,$s2		 // rax <- a12 + a14
-	mov x15,$s3
-	add	 x15,x15,$s1   // rbx <- a10 + a14
-	mov x5,$s7
-	add x5,x5,$s6		 // rcx <- a13 + a15
-	mov x6,$s0
-	add x6,x6,$s4		 // rdx <- a8 + a9
-	add $s7,$s7,$s5	// $s7 <-  a11 + a15
-	mov $s2,x5			// $s2 <- a13 + a15
-	add $s2,$s2,x4				// $s2 <- a12 + a13 + a14 + a15
-	add $s1,$s1,$s2	// $s1 <- a10 + a12 + a13 + a14 + a15
-	add $s1,$s1,$s2	// $s1 <- a10 + 2*(a12 + a13 + a14 + a15)
-	add $s1,$s1,x6				// $s1 <- a8 + a9 + a10 + 2*(a12 + a13 + a14 + a15)
-	add $s1,$s1,$s5	// $s1 <- a8 + a9 + a10 + a11 + 2*(a12 + a13 + a14 + a15)
-	add $s2,$s2,$s6	// $s2 <- a12 + 2*a13 + a14 + a15
-	add $s2,$s2,$s5	// $s2 <- a11 + a12 + 2*a13 + a14 + a15
-	add $s2,$s2,$s0	// $s2 <- a8 + a11 + a12 + 2*a13 + a14 + a15
-	add x6,x6,$s3		 // rdx <- a8 + a9 + a14
-	add x6,x6,$s6		 // rdx <- a8 + a9 + a13 + a14
-	add $s4,$s4,x5				// $s4 <- a9 + a13 + a15
-	add $s5,$s5,$s4	// $s5 <- a9 + a11 + a13 + a15
-	add $s5,$s5,x5				// $s5 <- a9 + a11 + 2*(a13 + a15)
-	add x4,x4,x15		 // rax <- a10 + a12 + 2*a14
+	add $t1,$a14,$a12   // t1 <- a12 + a14
+	add $t2,$a15,$a13   // t2 <- a13 + a15
+	add $t3,$a8,$a9     // t3 <- a8 + a9
+	add	$t4,$a14,$a10   // t4 <- a10 + a14
+	add $a15,$a15,$a11  // a15 <- a11 + a15
+	add $a12,$t2,$t1	// a12 <- a12 + a13 + a14 + a15
+	add $a10,$a10,$a12	// a10 <- a10 + a12 + a13 + a14 + a15
+	add $a10,$a10,$a12	// a10 <- a10 + 2*(a12 + a13 + a14 + a15)
+	add $a10,$a10,$t3	// a10 <- a8 + a9 + a10 + 2*(a12 + a13 + a14 + a15)
+	add $a10,$a10,$a11	// a10 <- a8 + a9 + a10 + a11 + 2*(a12 + a13 + a14 + a15)
+	add $a12,$a12,$a13	// a12 <- a12 + 2*a13 + a14 + a15
+	add $a12,$a12,$a11	// a12 <- a11 + a12 + 2*a13 + a14 + a15
+	add $a12,$a12,$a8	// a12 <- a8 + a11 + a12 + 2*a13 + a14 + a15
+	add $t3,$t3,$a14	// t3 <- a8 + a9 + a14
+	add $t3,$t3,$a13	// t3 <- a8 + a9 + a13 + a14
+	add $a9,$a9,$t2		// a9 <- a9 + a13 + a15
+	add $a11,$a11,$a9	// a11 <- a9 + a11 + a13 + a15
+	add $a11,$a11,$t2	// a11 <- a9 + a11 + 2*(a13 + a15)
+	add $t1,$t1,$t4		// t1 <- a10 + a12 + 2*a14
 
-	# U[0]  $s5	a9 + a11 + 2*(a13 + a15)
-	# U[1]  %rax	a10 + a12 + 2*a14
-	# U[2]
-	# U[3]  $s2	a8 + a11 + a12 + 2*a13 + a14 + a15
-	# U[4]  $s4	a9 + a13 + a15
-	# U[5]  %rbx	a10 + a14
-	# U[6]  $s7	a11 + a15
-	# U[7]  $s1	a8 + a9 + a10 + a11 + 2*(a12 + a13 + a14 + a15)
-	# sub   %rdx	a8 + a9 + a13 + a14
+	# U[0]  s5	a9 + a11 + 2*(a13 + a15)
+	# U[1]  t1	a10 + a12 + 2*a14
+	# U[2] -t3	a8 + a9 + a13 + a14
+	# U[3]  s2	a8 + a11 + a12 + 2*a13 + a14 + a15
+	# U[4]  s4	a9 + a13 + a15
+	# U[5]  t4	a10 + a14
+	# U[6]  s7	a11 + a15
+	# U[7]  s1	a8 + a9 + a10 + a11 + 2*(a12 + a13 + a14 + a15)
 
-	# $s0 $s3 $s6  %rcx
-
-	# 4. 8 -> 4  32-bit to 64-bit
-	# sub %rdx
-	mov $s0,x4
-	lsl $s0,$s0,#32
-	extr x4,$s2,x4,#32
-	extr $s2,x15,$s2,#32
-	extr x15,$s1,x15,#32
+	# 4. 32-bit to 64-bit
+	lsl $s0,$t1,#32
+	extr $t1,$s2,$t1,#32
+	extr $s2,$t4,$s2,#32
+	extr $t4,$s1,$t4,#32
 	lsr $s1,$s1,#32
 
 	# 5. 64-bit addition
 	adds $s5,$s5,$s0
-	adcs x4,x4,xzr
+	adcs $t1,$t1,xzr
 	adcs $s4,$s4,$s2
-	adcs $s7,$s7,x15
-	adcs x3,x3,$s1
+	adcs $s7,$s7,$t4
+	adcs $t0,$t0,$s1
 
-	# V[0] $s5
-	# V[1] %rax
-	# V[2] $s4
-	# V[3] $s7
-	# carry %rsi
-	# sub %rdx
+	# V[0]	s5
+	# V[1]	t1
+	# V[2]	s4
+	# V[3]	s7
+	# carry	t0
+	# sub	t3
 
-	# 5. ADD & SUB
+	# 5. Process s0-s3
 	ldp $s0,$s1,[sp,#32]
 	ldp $s2,$s3,[sp,#48]
-
-	# ADD
+	# add with V0-V3
 	adds $s0,$s0,$s5
-	adcs $s1,$s1,x4
+	adcs $s1,$s1,$t1
 	adcs $s2,$s2,$s4
 	adcs $s3,$s3,$s7
-	adcs x3,x3,xzr
-	# SUB
-	subs $s1,$s1,x6
+	adcs $t0,$t0,xzr
+	# sub with t3
+	subs $s1,$s1,$t3
 	sbcs $s2,$s2,xzr
 	sbcs $s3,$s3,xzr
-	sbcs x3,x3,xzr
+	sbcs $t0,$t0,xzr
 
 	# 6. MOD
 	# First Mod
-	mov x4,x3
-	lsl x4,x4,#32
-	mov x5,x4
-	subs x4,x4,x3
+	lsl $t1,$t0,#32
+	subs $t2,$t1,$t0
 
-	adds $s0,$s0,x3
-	adcs $s1,$s1,x4
+	adds $s0,$s0,$t0
+	adcs $s1,$s1,$t2
 	adcs $s2,$s2,xzr
-	adcs $s3,$s3,x5
+	adcs $s3,$s3,$t1
 
 	# Last Mod
 	# return y - p if y > p else y
@@ -457,18 +444,17 @@ $code.=<<___;
 	mov $s6,$s2
 	mov $s7,$s3
 
-	adr x3,.Lpoly
-	ldp x4,x15,[x3]
-	ldp x16,x17,[x3,#16]
+	adr $t0,.Lpoly
+	ldp $t1,$t2,[$t0]
+	ldp $t3,$t4,[$t0,#16]
 
-	eor x5,x5,x5
-	adcs x5,xzr,xzr
+	adcs $t5,xzr,xzr
 
-	subs $s0,$s0,x4
-	sbcs $s1,$s1,x15
-	sbcs $s2,$s2,x16
-	sbcs $s3,$s3,x17
-	sbcs x5,x5,xzr
+	subs $s0,$s0,$t1
+	sbcs $s1,$s1,$t2
+	sbcs $s2,$s2,$t3
+	sbcs $s3,$s3,$t4
+	sbcs $t5,$t5,xzr
 
 	csel $s0,$s0,$s4,cs
 	csel $s1,$s1,$s5,cs
@@ -478,15 +464,7 @@ $code.=<<___;
 	stp $s0,$s1,[x0]
 	stp $s2,$s3,[x0,#16]
 .endm
-___
-}
 
-{
-my ($s0,$s1,$s2,$s3,$s4,$s5,$s6,$s7)=map("x$_",(7..14));
-my ($t0,$t1,$t2,$t3)=map("x$_",(3..6));
-my ($t4,$t5,$t6,$t7,$t8)=map("x$_",(15..19));
-
-$code.=<<___;
 // void ecp_sm2p256_mul(BN_ULONG *r, const BN_ULONG *a, const BN_ULONG *b);
 .globl	ecp_sm2p256_mul
 .type	ecp_sm2p256_mul,%function
