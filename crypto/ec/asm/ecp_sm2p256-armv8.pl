@@ -540,7 +540,6 @@ ecp_sm2p256_mul:
 	adds $t2,$t2,$t0
 	adcs $t3,$t3,$t1
 	adcs $t4,xzr,xzr
-	mov $t6,$t2
 
 ### s2*s4 + s1*s5 + s0*s6 ###
 	mul $t0,$s2,$s4
@@ -552,87 +551,81 @@ ecp_sm2p256_mul:
 	umulh $t1,$s1,$s5
 	adds $t3,$t3,$t0
 	adcs $t4,$t4,$t1
-	adcs $t2,xzr,xzr
+	adcs $t6,xzr,xzr
 
 	mul $t0,$s0,$s6
 	umulh $t1,$s0,$s6
 	adds $t3,$t3,$t0
 	adcs $t4,$t4,$t1
-	adcs $t2,$t2,xzr
-	mov $t7,$t3
+	adcs $t6,$t6,xzr
 
 ### s3*s4 + s2*s5 + s1*s6 + s0*s7 ###
 	mul $t0,$s3,$s4
 	umulh $t1,$s3,$s4
 	adds $t4,$t4,$t0
-	adcs $t2,$t2,$t1
-	adcs $t3,xzr,xzr
+	adcs $t6,$t6,$t1
+	adcs $t7,xzr,xzr
 
 	mul $t0,$s2,$s5
 	umulh $t1,$s2,$s5
 	adds $t4,$t4,$t0
-	adcs $t2,$t2,$t1
-	adcs $t3,$t3,xzr
+	adcs $t6,$t6,$t1
+	adcs $t7,$t7,xzr
 
 	mul $t0,$s1,$s6
 	umulh $t1,$s1,$s6
 	adds $t4,$t4,$t0
-	adcs $t2,$t2,$t1
-	adcs $t3,$t3,xzr
+	adcs $t6,$t6,$t1
+	adcs $t7,$t7,xzr
 
-	mul $t0,$s0 ,$s7
+	mul $t0,$s0,$s7
 	umulh $t1,$s0,$s7
 	adds $t4,$t4,$t0
-	adcs $t2,$t2,$t1
-	adcs $t3,$t3,xzr
-	mov $t8,$t4
+	adcs $t6,$t6,$t1
+	adcs $t7,$t7,xzr
 
 ### s3*s5 + s2*s6 + s1*s7 ###
 	mul $t0,$s3,$s5
 	umulh $t1,$s3,$s5
-	adds $t2,$t2,$t0
-	adcs $t3,$t3,$t1
-	adcs $t4,xzr,xzr
+	adds $t6,$t6,$t0
+	adcs $t7,$t7,$t1
+	adcs $t8,xzr,xzr
 
 	mul $t0,$s2,$s6
 	umulh $t1,$s2,$s6
-	adds $t2,$t2,$t0
-	adcs $t3,$t3,$t1
-	adcs $t4,$t4,xzr
+	adds $t6,$t6,$t0
+	adcs $t7,$t7,$t1
+	adcs $t8,$t8,xzr
 
 	mul $t0,$s1,$s7
 	umulh $t1,$s1,$s7
-	adds $t2,$t2,$t0
-	adcs $t3,$t3,$t1
-	adcs $t4,$t4,xzr
-	mov $s4,$t2
+	adds $s4,$t6,$t0
+	adcs $t7,$t7,$t1
+	adcs $t8,$t8,xzr
 
 ### s3*s6 + s2*s7 ###
 	mul $t0,$s3,$s6
 	umulh $t1,$s3,$s6
-	adds $t3,$t3,$t0
-	adcs $t4,$t4,$t1
-	adcs $t2,xzr,xzr
+	adds $t7,$t7,$t0
+	adcs $t8,$t8,$t1
+	adcs $t6,xzr,xzr
 
 	mul $t0,$s2,$s7
 	umulh $t1,$s2,$s7
-	adds $t3,$t3,$t0
-	adcs $t4,$t4,$t1
-	adcs $t2,$t2,xzr
-	mov $s5,$t3
+	adds $s5,$t7,$t0
+	adcs $t8,$t8,$t1
+	adcs $t6,$t6,xzr
 
 ### s3*s7 ###
 	mul $t0,$s3,$s7
 	umulh $t1,$s3,$s7
-	adds $t4,$t4,$t0
-	adcs $t2,$t2,$t1
-	mov $s6,$t4
-	mov $s7,$t2
+	adds $s6,$t8,$t0
+	adcs $s7,$t6,$t1
 
 	mov $s0,$t5
-	mov $s1,$t6
-	mov $s2,$t7
-	mov $s3,$t8
+	mov $s1,$t2
+	mov $s2,$t3
+	mov $s3,$t4
 
 	# result of mul: s7 s6 s5 s4 s3 s2 s1 s0
 
