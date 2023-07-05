@@ -202,69 +202,69 @@ ecp_sm2p256_div_by_2:
 .align 5
 ecp_sm2p256_mul_by_3:
 	# Load inputs
-	ldp x3,x4,[x1]
-	ldp x5,x6,[x1,#16]
+	ldp $s0,$s1,[x1]
+	ldp $s2,$s3,[x1,#16]
 
 	# 2*a
-	adds x3,x3,x3
-	adcs x4,x4,x4
-	adcs x5,x5,x5
-	adcs x6,x6,x6
-	adcs x7,xzr,xzr
+	adds $s0,$s0,$s0
+	adcs $s1,$s1,$s1
+	adcs $s2,$s2,$s2
+	adcs $s3,$s3,$s3
+	adcs $t4,xzr,xzr
 
-	mov x8,x3
-	mov x9,x4
-	mov x10,x5
-	mov x11,x6
+	mov $t0,$s0
+	mov $t1,$s1
+	mov $t2,$s2
+	mov $t3,$s3
 
 	# Sub polynomial
 	adr x2,.Lpoly
-	ldp x12,x13,[x2]
-	ldp x14,x15,[x2,#16]
-	subs x3,x3,x12
-	sbcs x4,x4,x13
-	sbcs x5,x5,x14
-	sbcs x6,x6,x15
-	sbcs x7,x7,xzr
+	ldp $s4,$s5,[x2]
+	ldp $s6,$s7,[x2,#16]
+	subs $s0,$s0,$s4
+	sbcs $s1,$s1,$s5
+	sbcs $s2,$s2,$s6
+	sbcs $s3,$s3,$s7
+	sbcs $t4,$t4,xzr
 
-	csel x3,x3,x8,cs
-	csel x4,x4,x9,cs
-	csel x5,x5,x10,cs
-	csel x6,x6,x11,cs
-	eor x7,x7,x7
+	csel $s0,$s0,$t0,cs
+	csel $s1,$s1,$t1,cs
+	csel $s2,$s2,$t2,cs
+	csel $s3,$s3,$t3,cs
+	eor $t4,$t4,$t4
 
 	# 3*a
-	ldp x12,x13,[x1]
-	ldp x14,x15,[x1,#16]
-	adds x3,x3,x12
-	adcs x4,x4,x13
-	adcs x5,x5,x14
-	adcs x6,x6,x15
-	adcs x7,xzr,xzr
+	ldp $s4,$s5,[x1]
+	ldp $s6,$s7,[x1,#16]
+	adds $s0,$s0,$s4
+	adcs $s1,$s1,$s5
+	adcs $s2,$s2,$s6
+	adcs $s3,$s3,$s7
+	adcs $t4,xzr,xzr
 
-	mov x8,x3
-	mov x9,x4
-	mov x10,x5
-	mov x11,x6
+	mov $t0,$s0
+	mov $t1,$s1
+	mov $t2,$s2
+	mov $t3,$s3
 
 	# Sub polynomial
 	adr x2,.Lpoly
-	ldp x12,x13,[x2]
-	ldp x14,x15,[x2,#16]
-	subs x3,x3,x12
-	sbcs x4,x4,x13
-	sbcs x5,x5,x14
-	sbcs x6,x6,x15
-	sbcs x7,x7,xzr
+	ldp $s4,$s5,[x2]
+	ldp $s6,$s7,[x2,#16]
+	subs $s0,$s0,$s4
+	sbcs $s1,$s1,$s5
+	sbcs $s2,$s2,$s6
+	sbcs $s3,$s3,$s7
+	sbcs $t4,$t4,xzr
 
-	csel x3,x3,x8,cs
-	csel x4,x4,x9,cs
-	csel x5,x5,x10,cs
-	csel x6,x6,x11,cs
+	csel $s0,$s0,$t0,cs
+	csel $s1,$s1,$t1,cs
+	csel $s2,$s2,$t2,cs
+	csel $s3,$s3,$t3,cs
 
 	# Store results
-	stp x3,x4,[x0]
-	stp x5,x6,[x0,#16]
+	stp $s0,$s1,[x0]
+	stp $s2,$s3,[x0,#16]
 
 	ret
 .size ecp_sm2p256_mul_by_3,.-ecp_sm2p256_mul_by_3
