@@ -114,6 +114,46 @@ $code.=<<___;
 ___
 }
 
+sub bn_mod_div_by_2() {
+	my $mod = shift;
+$code.=<<___;
+	# Load inputs
+	ldp $s0,$s1,[x1]
+	ldp $s2,$s3,[x1,#16]
+
+	# Save the least significant bit
+	mov $t0,$s0
+
+	# Right shift 1
+	extr $s0,$s1,$s0,#1
+	extr $s1,$s2,$s1,#1
+	extr $s2,$s3,$s2,#1
+	lsr  $s3,$s3,#1
+
+	# Load mod
+	adr	x2,$mod
+	ldp $s4,$s5,[x2]
+	ldp $s6,$s7,[x2,#16]
+
+	# Parity check
+	tst	$t0,#1
+	csel $s4,xzr,$s4,eq
+	csel $s5,xzr,$s5,eq
+	csel $s6,xzr,$s6,eq
+	csel $s7,xzr,$s7,eq
+
+	# Add
+	adds $s0,$s0,$s4
+	adcs $s1,$s1,$s5
+	adcs $s2,$s2,$s6
+	adc  $s3,$s3,$s7
+
+	# Store results
+	stp $s0,$s1,[x0]
+	stp $s2,$s3,[x0,#16]
+___
+}
+
 {
 $code.=<<___;
 #include "arm_arch.h"
@@ -182,41 +222,9 @@ bn_sub:
 .type	ecp_sm2p256_div_by_2,%function
 .align  5
 ecp_sm2p256_div_by_2:
-	# Load inputs
-	ldp $s0,$s1,[x1]
-	ldp $s2,$s3,[x1,#16]
-
-	# Save the least significant bit
-	mov $t0,$s0
-
-	# Right shift 1
-	extr $s0,$s1,$s0,#1
-	extr $s1,$s2,$s1,#1
-	extr $s2,$s3,$s2,#1
-	lsr  $s3,$s3,#1
-
-	# Load polynomial
-	adr $t1,.Lpoly_div_2
-	ldp $s4,$s5,[$t1]
-	ldp $s6,$s7,[$t1,#16]
-
-	# Parity check
-	tst	$t0,#1
-	csel $s4,xzr,$s4,eq
-	csel $s5,xzr,$s5,eq
-	csel $s6,xzr,$s6,eq
-	csel $s7,xzr,$s7,eq
-
-	# Add
-	adds $s0,$s0,$s4
-	adcs $s1,$s1,$s5
-	adcs $s2,$s2,$s6
-	adc  $s3,$s3,$s7
-
-	# Store results
-	stp $s0,$s1,[x1]
-	stp $s2,$s3,[x1,#16]
-
+___
+	&bn_mod_div_by_2(".Lpoly_div_2");
+$code.=<<___;
 	ret
 .size ecp_sm2p256_div_by_2,.-ecp_sm2p256_div_by_2
 
