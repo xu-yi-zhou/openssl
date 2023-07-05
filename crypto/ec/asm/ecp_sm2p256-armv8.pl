@@ -337,18 +337,6 @@ $code.=<<___;
 	ret
 .size ecp_sm2p256_sub,.-ecp_sm2p256_sub
 
-// void ecp_sm2p256_add_mod_ord(BN_ULONG *r,const BN_ULONG *a,const BN_ULONG *b);
-.globl	ecp_sm2p256_add_mod_ord
-.type	ecp_sm2p256_add_mod_ord,%function
-.align	5
-ecp_sm2p256_add_mod_ord:
-___
-	&bn_mod_add(".Lord");
-$code.=<<___;
-	ret
-.size ecp_sm2p256_add_mod_ord,.-ecp_sm2p256_add_mod_ord
-
-
 // void ecp_sm2p256_sub_mod_ord(BN_ULONG *r,const BN_ULONG *a,const BN_ULONG *b);
 .globl	ecp_sm2p256_sub_mod_ord
 .type	ecp_sm2p256_sub_mod_ord,%function
