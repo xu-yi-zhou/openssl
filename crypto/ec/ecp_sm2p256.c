@@ -89,21 +89,23 @@ static const BN_ULONG ONE[P256_LIMBS] = {1, 0, 0, 0};
  */
 /* Right shift: a >> 1 */
 void bn_rshift1(BN_ULONG *a);
-/* Modular div by 2: r = a/2 mod p */
+/* Sub: r = a - b */
+void bn_sub(BN_ULONG *r, const BN_ULONG *a, const BN_ULONG *b);
+/* Modular div by 2: r = a / 2 mod p */
 void ecp_sm2p256_div_by_2(BN_ULONG *r, const BN_ULONG *a);
-/* Modular add: r = a+b mod p */
+/* Modular add: r = a + b mod p */
 void ecp_sm2p256_add(BN_ULONG *r, const BN_ULONG *a, const BN_ULONG *b);
-/* Modular add: r = a+b mod n, where n = ord(p) */
+/* Modular add: r = a + b mod n, where n = ord(p) */
 void ecp_sm2p256_add_mod_ord(BN_ULONG *r, const BN_ULONG *a, const BN_ULONG *b);
-/* Modular sub: r = a-b mod p */
+/* Modular sub: r = a - b mod p */
 void ecp_sm2p256_sub(BN_ULONG *r, const BN_ULONG *a, const BN_ULONG *b);
-/* Modular sub: r = a-b mod n, where n = ord(p) */
+/* Modular sub: r = a - b mod n, where n = ord(p) */
 void ecp_sm2p256_sub_mod_ord(BN_ULONG *r, const BN_ULONG *a, const BN_ULONG *b);
-/* Modular mul by 3: out = 3*a mod p */
+/* Modular mul by 3: out = 3 * a mod p */
 void ecp_sm2p256_mul_by_3(BN_ULONG *r, const BN_ULONG *a);
-/* Modular mul: r = a*b mod p */
+/* Modular mul: r = a * b mod p */
 void ecp_sm2p256_mul(BN_ULONG *r, const BN_ULONG *a, const BN_ULONG *b);
-/* Modular sqr: r = a^2 mod p */
+/* Modular sqr: r = a ^ 2 mod p */
 void ecp_sm2p256_sqr(BN_ULONG *r, const BN_ULONG *a);
 
 static ossl_inline BN_ULONG is_zeros(const BN_ULONG *a)
@@ -186,10 +188,10 @@ static ossl_inline int is_greater(const BN_ULONG *a, const BN_ULONG *b)
             }                                           \
         }                                               \
         if (is_greater(u, v) == 1) {                    \
-            fsub(u, u, v);                              \
+            bn_sub(u, u, v);                              \
             fsub(x1, x1, x2);                           \
         } else {                                        \
-            fsub(v, v, u);                              \
+            bn_sub(v, v, u);                              \
             fsub(x2, x2, x1);                           \
         }                                               \
     }                                                   \

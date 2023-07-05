@@ -153,6 +153,30 @@ bn_rshift1:
 	ret
 .size bn_rshift1,.-bn_rshift1
 
+// void bn_sub(BN_ULONG *r, const BN_ULONG *a, const BN_ULONG *b);
+.globl	bn_sub
+.type	bn_sub,%function
+.align  5
+bn_sub:
+	# Load inputs
+	ldp $s0,$s1,[x1]
+	ldp $s2,$s3,[x1,#16]
+	ldp $s4,$s5,[x2]
+	ldp $s6,$s7,[x2,#16]
+
+	# Substraction
+	subs $s0,$s0,$s4
+	sbcs $s1,$s1,$s5
+	sbcs $s2,$s2,$s6
+	sbc  $s3,$s3,$s7
+
+	# Store results
+	stp $s0,$s1,[x0]
+	stp $s2,$s3,[x0,#16]
+
+	ret
+.size bn_sub,.-bn_sub
+
 // void ecp_sm2p256_div_by_2(BN_ULONG *r,const BN_ULONG *a);
 .globl	ecp_sm2p256_div_by_2
 .type	ecp_sm2p256_div_by_2,%function
