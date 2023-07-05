@@ -167,9 +167,12 @@ $code.=<<___;
 // The order of polynomial n
 .Lord:
 .quad	0x53bbf40939d54123,0x7203df6b21c6052b,0xffffffffffffffff,0xfffffffeffffffff
-// (p + 1) div by 2
+// (p + 1) / 2
 .Lpoly_div_2:
 .quad	0x8000000000000000,0xffffffff80000000,0xffffffffffffffff,0x7fffffff7fffffff
+// (n + 1) / 2
+.Lord_div_2:
+.quad	0xa9ddfa049ceaa092,0xb901efb590e30295,0xffffffffffffffff,0x7fffffff7fffffff
 
 // void bn_rshift1(BN_ULONG *a);
 .globl	bn_rshift1
@@ -227,6 +230,17 @@ ___
 $code.=<<___;
 	ret
 .size ecp_sm2p256_div_by_2,.-ecp_sm2p256_div_by_2
+
+// void ecp_sm2p256_div_by_2_mod_ord(BN_ULONG *r,const BN_ULONG *a);
+.globl	ecp_sm2p256_div_by_2_mod_ord
+.type	ecp_sm2p256_div_by_2_mod_ord,%function
+.align  5
+ecp_sm2p256_div_by_2_mod_ord:
+___
+	&bn_mod_div_by_2(".Lord_div_2");
+$code.=<<___;
+	ret
+.size ecp_sm2p256_div_by_2_mod_ord,.-ecp_sm2p256_div_by_2_mod_ord
 
 // void ecp_sm2p256_mul_by_3(BN_ULONG *r,const BN_ULONG *a);
 .globl	ecp_sm2p256_mul_by_3
