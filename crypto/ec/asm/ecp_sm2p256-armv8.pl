@@ -165,8 +165,6 @@ ecp_sm2p256_div_by_2:
 	csel $s7,xzr,$s7,eq
 
 	# Add
-
-	# Add polynomial
 	adds $s0,$s0,$s4
 	adcs $s1,$s1,$s5
 	adcs $s2,$s2,$s6
