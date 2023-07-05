@@ -27,7 +27,7 @@ sub bn_mod_add() {
 $code.=<<___;
 	# Load inputs
 	ldp $s0,$s1,[x1]
-	ldp $s2,$s4,[x1,#16]
+	ldp $s2,$s3,[x1,#16]
 	ldp $s4,$s5,[x2]
 	ldp $s6,$s7,[x2,#16]
 
@@ -35,7 +35,7 @@ $code.=<<___;
 	adds $s0,$s0,$s4
 	adcs $s1,$s1,$s5
 	adcs $s2,$s2,$s6
-	adcs $s4,$s4,$s7
+	adcs $s3,$s3,$s7
 	adc $t4,xzr,xzr
 
 	# Load polynomial
@@ -47,7 +47,7 @@ $code.=<<___;
 	mov $t0,$s0
 	mov $t1,$s1
 	mov $t2,$s2
-	mov $t3,$s4
+	mov $t3,$s3
 
 	# Sub polynomial
 	subs $t0,$t0,$s4
@@ -60,11 +60,11 @@ $code.=<<___;
 	csel $s0,$s0,$t0,cc
 	csel $s1,$s1,$t1,cc
 	csel $s2,$s2,$t2,cc
-	csel $s4,$s4,$t3,cc
+	csel $s3,$s3,$t3,cc
 
 	# Store results
 	stp $s0,$s1,[x0]
-	stp $s2,$s4,[x0,#16]
+	stp $s2,$s3,[x0,#16]
 ___
 }
 
