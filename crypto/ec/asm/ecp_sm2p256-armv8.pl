@@ -102,13 +102,15 @@ $code.=<<___;
 .text
 
 .align	5
-// The polynomial
+// The polynomial p
 .Lpoly:
 .quad	0xffffffffffffffff,0xffffffff00000000,0xffffffffffffffff,0xfffffffeffffffff
-// The order of polynomial
+// The order of polynomial n
 .Lord:
 .quad	0x53bbf40939d54123,0x7203df6b21c6052b,0xffffffffffffffff,0xfffffffeffffffff
-
+// (p + 1) div by 2
+.Lpoly_div_2:
+.quad	0x8000000000000000,0xffffffff80000000,0xffffffffffffffff,0x7fffffff7fffffff
 
 // void bn_rshift1(BN_ULONG *a);
 .globl	bn_rshift1
@@ -137,42 +139,42 @@ bn_rshift1:
 .type	ecp_sm2p256_div_by_2,%function
 .align  5
 ecp_sm2p256_div_by_2:
-	eor x13,x13,x13
-	eor x15,x15,x15
-
 	# Load inputs
-	ldp x9,x10,[x1]
-	ldp x11,x12,[x1,#16]
+	ldp $s0,$s1,[x1]
+	ldp $s2,$s3,[x1,#16]
 
-	mov x14,x9
+	# Save the least significant bit
+	mov $t0,$s0
 
-	# Add polynomial
-	ldr x2,.Lpoly
-	ldr x3,.Lpoly+8
-	ldr x4,.Lpoly+16
-	ldr x5,.Lpoly+24
-	adds x9,x9,x2
-	adcs x10,x10,x3
-	adcs x11,x11,x4
-	adcs x12,x12,x5
-	adcs x13,x13,xzr
+	# Right shift 1
+	extr $s0,$s1,$s0,#1
+	extr $s1,$s2,$s1,#1
+	extr $s2,$s3,$s2,#1
+	lsr  $s3,$s3,#1
+
+	# Load polynomial
+	adr $t1,.Lpoly_div_2
+	ldp $s4,$s5,[$t1]
+	ldp $s6,$s7,[$t1,#16]
 
 	# Parity check
-	tst x14,#1
-	b.ne .not_equal_1
-	ldp x9,x10,[x1]
-	ldp x11,x12,[x1,#16]
-	mov x13,x15
+	tst	$t0,#1
+	csel $s4,xzr,$s4,eq
+	csel $s5,xzr,$s5,eq
+	csel $s6,xzr,$s6,eq
+	csel $s7,xzr,$s7,eq
 
-.not_equal_1:
-	extr x9,x10,x9,#1
-	extr x10,x11,x10,#1
-	extr x11,x12,x11,#1
-	extr x12,x13,x12,#1
+	# Add
+
+	# Add polynomial
+	adds $s0,$s0,$s4
+	adcs $s1,$s1,$s5
+	adcs $s2,$s2,$s6
+	adc  $s3,$s3,$s7
 
 	# Store results
-	stp x9,x10,[x0]
-	stp x11,x12,[x0,#16]
+	stp $s0,$s1,[x1]
+	stp $s2,$s3,[x1,#16]
 
 	ret
 .size ecp_sm2p256_div_by_2,.-ecp_sm2p256_div_by_2
@@ -327,7 +329,7 @@ $code.=<<___;
 	# t2=s6+s7+s7
 	adds $t2,$s6,$s7
 	adcs $t1,xzr,xzr
-	adds $t2,$t2,$s7	
+	adds $t2,$t2,$s7
 	adcs $t1,$t1,xzr
 	# t3=s4+s5+t2
 	adds $t3,$s4,$t2
