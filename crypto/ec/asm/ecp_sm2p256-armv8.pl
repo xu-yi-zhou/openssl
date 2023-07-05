@@ -17,85 +17,104 @@ die "can't locate arm-xlate.pl";
 open OUT,"| \"$^X\" $xlate $flavour $output";
 *STDOUT=*OUT;
 
-sub bn_mod_add() {
-	my $mod = shift;
-$code.=<<___;
-	/* Load inputs */
-	ldp	x3,x4,[x1]
-	ldp	x5,x6,[x1,#0x10]
-	/* Addition */
-	ldp	x7,x8,[x2]
-	ldp	x9,x10,[x2,#0x10]
-	adds	x3,x3,x7
-	adcs	x4,x4,x8
-	adcs	x5,x5,x9
-	adcs	x6,x6,x10
-	adc	x15,xzr,xzr
-	mov	x11,x3
-	mov	x12,x4
-	mov	x13,x5
-	mov	x14,x6
-	/* Sub polynomial */
-	adr	x2,$mod
-	ldp	x7,x8,[x2]
-	ldp	x9,x10,[x2,#0x10]
-	subs	x11,x11,x7
-	sbcs	x12,x12,x8
-	sbcs	x13,x13,x9
-	sbcs	x14,x14,x10
-	sbcs	x15,x15,xzr
-	csel	x3,x3,x11,cc
-	csel	x4,x4,x12,cc
-	csel	x5,x5,x13,cc
-	csel	x6,x6,x14,cc
-	/* Store results */
-	stp	x3,x4,[x0]
-	stp	x5,x6,[x0,#0x10]
-___
-}
-sub bn_mod_sub() {
-	my $mod = shift;
-$code.=<<___;
-	/* Load inputs */
-	ldp	x3,x4,[x1]
-	ldp	x5,x6,[x1,#0x10]
-	/* Addition */
-	ldp	x7,x8,[x2]
-	ldp	x9,x10,[x2,#0x10]
-	subs	x3,x3,x7
-	sbcs	x4,x4,x8
-	sbcs	x5,x5,x9
-	sbcs	x6,x6,x10
-	sbc	x15,xzr,xzr
-	mov	x11,x3
-	mov	x12,x4
-	mov	x13,x5
-	mov	x14,x6
-	/* Add polynomial */
-	adr	x2,$mod
-	ldp	x7,x8,[x2]
-	ldp	x9,x10,[x2,#0x10]
-	adds	x11,x11,x7
-	adcs	x12,x12,x8
-	adcs	x13,x13,x9
-	adcs	x14,x14,x10
-	tst	x15,x15
-	csel	x3,x3,x11,eq
-	csel	x4,x4,x12,eq
-	csel	x5,x5,x13,eq
-	csel	x6,x6,x14,eq
-	/* Store results */
-	stp	x3,x4,[x0]
-	stp	x5,x6,[x0,#0x10]
-___
-}
-
-{
 my ($s0,$s1,$s2,$s3,$s4,$s5,$s6,$s7)=map("x$_",(7..14));
 my ($a8,$a10,$a12,$a14,$a9,$a11,$a13,$a15)=map("x$_",(7..14));
 my ($t0,$t1,$t2,$t3)=map("x$_",(3..6));
 my ($t4,$t5,$t6,$t7,$t8)=map("x$_",(15..19));
 
+sub bn_mod_add() {
+	my $mod = shift;
+$code.=<<___;
+	# Load inputs
+	ldp $s0,$s1,[x1]
+	ldp $s2,$s4,[x1,#16]
+	ldp $s4,$s5,[x2]
+	ldp $s6,$s7,[x2,#16]
+
+	# Addition
+	adds $s0,$s0,$s4
+	adcs $s1,$s1,$s5
+	adcs $s2,$s2,$s6
+	adcs $s4,$s4,$s7
+	adc $t4,xzr,xzr
+
+	# Load polynomial
+	adr x2,$mod
+	ldp $s4,$s5,[x2]
+	ldp $s6,$s7,[x2,#16]
+
+	# Backup Addition
+	mov $t0,$s0
+	mov $t1,$s1
+	mov $t2,$s2
+	mov $t3,$s4
+
+	# Sub polynomial
+	subs $t0,$t0,$s4
+	sbcs $t1,$t1,$s5
+	sbcs $t2,$t2,$s6
+	sbcs $t3,$t3,$s7
+	sbcs $t4,$t4,xzr
+
+	# Select based on carry
+	csel $s0,$s0,$t0,cc
+	csel $s1,$s1,$t1,cc
+	csel $s2,$s2,$t2,cc
+	csel $s4,$s4,$t3,cc
+
+	# Store results
+	stp $s0,$s1,[x0]
+	stp $s2,$s4,[x0,#16]
+___
+}
+
+sub bn_mod_sub() {
+	my $mod = shift;
+$code.=<<___;
+	# Load inputs
+	ldp $s0,$s1,[x1]
+	ldp $s2,$s3,[x1,#16]
+	ldp $s4,$s5,[x2]
+	ldp $s6,$s7,[x2,#16]
+
+	# Substraction
+	subs $s0,$s0,$s4
+	sbcs $s1,$s1,$s5
+	sbcs $s2,$s2,$s6
+	sbcs $s3,$s3,$s7
+	sbc $t4,xzr,xzr
+
+	# Load polynomial
+	adr	x2,$mod
+	ldp $s4,$s5,[x2]
+	ldp $s6,$s7,[x2,#16]
+
+	# Backup Substraction
+	mov $t0,$s0
+	mov $t1,$s1
+	mov $t2,$s2
+	mov $t3,$s3
+
+	# Add polynomial
+	adds $t0,$t0,$s4
+	adcs $t1,$t1,$s5
+	adcs $t2,$t2,$s6
+	adcs $t3,$t3,$s7
+	tst $t4,$t4
+
+	# Select based on carry
+	csel $s0,$s0,$t0,eq
+	csel $s1,$s1,$t1,eq
+	csel $s2,$s2,$t2,eq
+	csel $s3,$s3,$t3,eq
+
+	# Store results
+	stp $s0,$s1,[x0]
+	stp $s2,$s3,[x0,#16]
+___
+}
+
+{
 $code.=<<___;
 #include "arm_arch.h"
 .arch  armv8-a
@@ -118,21 +137,21 @@ $code.=<<___;
 .align  5
 bn_rshift1:
 	# Load inputs
-	ldp x9,x10,[x0]
-	ldp x11,x12,[x0,#16]
+	ldp $s0,$s1,[x0]
+	ldp $s2,$s3,[x0,#16]
 
 	# Right shift
-	extr x9,x10,x9,#1
-	extr x10,x11,x10,#1
-	extr x11,x12,x11,#1
-	lsr  x12,x12,#1
+	extr $s0,$s1,$s0,#1
+	extr $s1,$s2,$s1,#1
+	extr $s2,$s3,$s2,#1
+	lsr  $s3,$s3,#1
 
 	# Store results
-	stp x9,x10,[x0]
-	stp x11,x12,[x0,#16]
+	stp $s0,$s1,[x0]
+	stp $s2,$s3,[x0,#16]
 
 	ret
-	.size bn_rshift1,.-bn_rshift1
+.size bn_rshift1,.-bn_rshift1
 
 // void ecp_sm2p256_div_by_2(BN_ULONG *r,const BN_ULONG *a);
 .globl	ecp_sm2p256_div_by_2
