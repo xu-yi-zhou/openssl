@@ -480,8 +480,6 @@ $code.=<<___;
 	csel $s2,$s2,$s6,cs
 	csel $s3,$s3,$s7,cs
 
-	stp $s0,$s1,[x0]
-	stp $s2,$s3,[x0,#16]
 .endm
 
 // void ecp_sm2p256_mul(BN_ULONG *r, const BN_ULONG *a, const BN_ULONG *b);
@@ -629,6 +627,9 @@ ecp_sm2p256_mul:
 ### Reduction ###
 	RDC
 
+	stp $s0,$s1,[x0]
+	stp $s2,$s3,[x0,#16]
+
 	# Restore scalar registers
 	ldp x16,x17,[sp,#16]
 	ldp x18,x19,[sp,#64]
@@ -752,6 +753,9 @@ ecp_sm2p256_sqr:
 ### Reduction ###
 	RDC
 
+	stp $s0,$s1,[x0]
+	stp $s2,$s3,[x0,#16]
+
 	# Restore scalar registers
 	ldp x16,x17,[sp,#16]
 	ldp x18,x19,[sp,#64]
@@ -759,10 +763,7 @@ ecp_sm2p256_sqr:
 
 	ret
 .size ecp_sm2p256_sqr,.-ecp_sm2p256_sqr
-
 ___
-
-
 }
 
 foreach (split("\n",$code)) {
