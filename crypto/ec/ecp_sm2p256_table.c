@@ -10,13 +10,13 @@
 /*
  * This is the precomputed table for the code in ecp_sm2p256.c, for the default
  * generator. The table consists of 32 subtables, each subtable contains 256
- * affine points. 
+ * affine points.
  * subtable 0:   0*  (2^0)*G, 1*  (2^0)*G, 2*  (2^0)*G, ... , 255*  (2^0)*G,
  * subtable 1:   0*  (2^8)*G, 1*  (2^8)*G, 2*  (2^8)*G, ... , 255*  (2^8)*G,
  * subtable 2:   0* (2^16)*G, 1* (2^16)*G, 2* (2^16)*G, ... , 255* (2^16)*G,
  * ...
  * subtable 31:  0*(2^248)*G, 1*(2^248)*G, 2*(2^248)*G, ... , 255*(2^248)*G,
- * 
+ *
  * The affine points are encoded as eight uint64's, four for the
  * x coordinate and four for the y. Both values are in little-endian order.
  */
@@ -30,7 +30,7 @@ __declspec(align(4096))
 #elif defined(__SUNPRO_C)
 # pragma align 4096(ecp_sm2p256_precomputed)
 #endif
-
+extern const BN_ULONG ecp_sm2p256_precomputed[8 * 32 * 256];
 const BN_ULONG ecp_sm2p256_precomputed[8 * 32 * 256] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x715a4589334c74c7, 0x8fe30bbff2660be1, 0x5f9904466a39c994, 0x32c4ae2c1f198119,

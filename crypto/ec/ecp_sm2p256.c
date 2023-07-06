@@ -611,8 +611,8 @@ static int ecp_sm2p256_points_mul(const EC_GROUP *group,
             g_scalars[0] = scalar;
 
             if (!ecp_sm2p256_windowed_mul(group, &p.p, g_scalars, new_generator,
-                                         (new_generator != NULL
-                                          && g_scalars != NULL), ctx))
+                                          (new_generator[0] != NULL
+                                           && g_scalars[0] != NULL), ctx))
                 goto err;
         }
     } else {
