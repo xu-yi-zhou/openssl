@@ -179,6 +179,7 @@ $code.=<<___;
 .type	bn_rshift1,%function
 .align	5
 bn_rshift1:
+	AARCH64_SIGN_LINK_REGISTER
 	# Load inputs
 	ldp $s0,$s1,[x0]
 	ldp $s2,$s3,[x0,#16]
@@ -192,7 +193,7 @@ bn_rshift1:
 	# Store results
 	stp $s0,$s1,[x0]
 	stp $s2,$s3,[x0,#16]
-
+	AARCH64_VALIDATE_LINK_REGISTER
 	ret
 .size bn_rshift1,.-bn_rshift1
 
@@ -201,6 +202,7 @@ bn_rshift1:
 .type	bn_sub,%function
 .align	5
 bn_sub:
+	AARCH64_SIGN_LINK_REGISTER
 	# Load inputs
 	ldp $s0,$s1,[x1]
 	ldp $s2,$s3,[x1,#16]
@@ -216,7 +218,7 @@ bn_sub:
 	# Store results
 	stp $s0,$s1,[x0]
 	stp $s2,$s3,[x0,#16]
-
+	AARCH64_VALIDATE_LINK_REGISTER
 	ret
 .size bn_sub,.-bn_sub
 
@@ -225,9 +227,11 @@ bn_sub:
 .type	ecp_sm2p256_div_by_2,%function
 .align	5
 ecp_sm2p256_div_by_2:
+	AARCH64_SIGN_LINK_REGISTER
 ___
 	&bn_mod_div_by_2(".Lpoly_div_2");
 $code.=<<___;
+	AARCH64_VALIDATE_LINK_REGISTER
 	ret
 .size ecp_sm2p256_div_by_2,.-ecp_sm2p256_div_by_2
 
@@ -236,9 +240,11 @@ $code.=<<___;
 .type	ecp_sm2p256_div_by_2_mod_ord,%function
 .align	5
 ecp_sm2p256_div_by_2_mod_ord:
+	AARCH64_SIGN_LINK_REGISTER
 ___
 	&bn_mod_div_by_2(".Lord_div_2");
 $code.=<<___;
+	AARCH64_VALIDATE_LINK_REGISTER
 	ret
 .size ecp_sm2p256_div_by_2_mod_ord,.-ecp_sm2p256_div_by_2_mod_ord
 
@@ -247,6 +253,7 @@ $code.=<<___;
 .type	ecp_sm2p256_mul_by_3,%function
 .align	5
 ecp_sm2p256_mul_by_3:
+	AARCH64_SIGN_LINK_REGISTER
 	# Load inputs
 	ldp $s0,$s1,[x1]
 	ldp $s2,$s3,[x1,#16]
@@ -312,6 +319,7 @@ ecp_sm2p256_mul_by_3:
 	stp $s0,$s1,[x0]
 	stp $s2,$s3,[x0,#16]
 
+	AARCH64_VALIDATE_LINK_REGISTER
 	ret
 .size ecp_sm2p256_mul_by_3,.-ecp_sm2p256_mul_by_3
 
@@ -320,9 +328,11 @@ ecp_sm2p256_mul_by_3:
 .type	ecp_sm2p256_add,%function
 .align	5
 ecp_sm2p256_add:
+	AARCH64_SIGN_LINK_REGISTER
 ___
 	&bn_mod_add(".Lpoly");
 $code.=<<___;
+	AARCH64_VALIDATE_LINK_REGISTER
 	ret
 .size ecp_sm2p256_add,.-ecp_sm2p256_add
 
@@ -331,9 +341,11 @@ $code.=<<___;
 .type	ecp_sm2p256_sub,%function
 .align	5
 ecp_sm2p256_sub:
+	AARCH64_SIGN_LINK_REGISTER
 ___
 	&bn_mod_sub(".Lpoly");
 $code.=<<___;
+	AARCH64_VALIDATE_LINK_REGISTER
 	ret
 .size ecp_sm2p256_sub,.-ecp_sm2p256_sub
 
@@ -342,9 +354,11 @@ $code.=<<___;
 .type	ecp_sm2p256_sub_mod_ord,%function
 .align	5
 ecp_sm2p256_sub_mod_ord:
+	AARCH64_SIGN_LINK_REGISTER
 ___
 	&bn_mod_sub(".Lord");
 $code.=<<___;
+	AARCH64_VALIDATE_LINK_REGISTER
 	ret
 .size ecp_sm2p256_sub_mod_ord,.-ecp_sm2p256_sub_mod_ord
 
@@ -521,6 +535,7 @@ $code.=<<___;
 .type	ecp_sm2p256_mul,%function
 .align	5
 ecp_sm2p256_mul:
+	AARCH64_SIGN_LINK_REGISTER
 	# Store scalar registers
 	stp x29,x30,[sp,#-80]!
 	add x29,sp,#0
@@ -669,6 +684,7 @@ ecp_sm2p256_mul:
 	ldp x18,x19,[sp,#64]
 	ldp x29,x30,[sp],#80
 
+	AARCH64_VALIDATE_LINK_REGISTER
 	ret
 .size ecp_sm2p256_mul,.-ecp_sm2p256_mul
 
@@ -678,6 +694,7 @@ ecp_sm2p256_mul:
 .align	5
 
 ecp_sm2p256_sqr:
+	AARCH64_SIGN_LINK_REGISTER
 	# Store scalar registers
 	stp x29,x30,[sp,#-80]!
 	add x29,sp,#0
@@ -795,6 +812,7 @@ ecp_sm2p256_sqr:
 	ldp x18,x19,[sp,#64]
 	ldp x29,x30,[sp],#80
 
+	AARCH64_VALIDATE_LINK_REGISTER
 	ret
 .size ecp_sm2p256_sqr,.-ecp_sm2p256_sqr
 ___
