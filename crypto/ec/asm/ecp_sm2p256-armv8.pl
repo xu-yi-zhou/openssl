@@ -17,827 +17,792 @@ die "can't locate arm-xlate.pl";
 open OUT,"| \"$^X\" $xlate $flavour $output";
 *STDOUT=*OUT;
 
+my ($s0,$s1,$s2,$s3,$s4,$s5,$s6,$s7)=map("x$_",(7..14));
+my ($a8,$a10,$a12,$a14,$a9,$a11,$a13,$a15)=map("x$_",(7..14));
+my ($t0,$t1,$t2,$t3)=map("x$_",(3..6));
+my ($t4,$t5,$t6,$t7,$t8)=map("x$_",(15..19));
+
 sub bn_mod_add() {
-    my $mod = shift;
+	my $mod = shift;
 $code.=<<___;
-       /* Load inputs */
-       ldp             x3,x4,[x1]
-       ldp             x5,x6,[x1,#0x10]
-       /* Addition */
-       ldp             x7,x8,[x2]
-       ldp             x9,x10,[x2,#0x10]
-       adds    x3,x3,x7
-       adcs    x4,x4,x8
-       adcs    x5,x5,x9
-       adcs    x6,x6,x10
-       adc      x15,xzr,xzr
-       mov             x11,x3
-       mov             x12,x4
-       mov             x13,x5
-       mov             x14,x6
-       /* Sub polynomial */
-       adr             x2,$mod
-       ldp             x7,x8,[x2]
-       ldp             x9,x10,[x2,#0x10]
-       subs    x11,x11,x7
-       sbcs    x12,x12,x8
-       sbcs    x13,x13,x9
-       sbcs    x14,x14,x10
-       sbcs    x15,x15,xzr
-       csel    x3,x3,x11,cc
-       csel    x4,x4,x12,cc
-       csel    x5,x5,x13,cc
-       csel    x6,x6,x14,cc
-       /* Store results */
-       stp             x3,x4,[x0]
-       stp             x5,x6,[x0,#0x10]
+	# Load inputs
+	ldp $s0,$s1,[x1]
+	ldp $s2,$s3,[x1,#16]
+	ldp $s4,$s5,[x2]
+	ldp $s6,$s7,[x2,#16]
+
+	# Addition
+	adds $s0,$s0,$s4
+	adcs $s1,$s1,$s5
+	adcs $s2,$s2,$s6
+	adcs $s3,$s3,$s7
+	adc $t4,xzr,xzr
+
+	# Load polynomial
+	adr x2,$mod
+	ldp $s4,$s5,[x2]
+	ldp $s6,$s7,[x2,#16]
+
+	# Backup Addition
+	mov $t0,$s0
+	mov $t1,$s1
+	mov $t2,$s2
+	mov $t3,$s3
+
+	# Sub polynomial
+	subs $t0,$t0,$s4
+	sbcs $t1,$t1,$s5
+	sbcs $t2,$t2,$s6
+	sbcs $t3,$t3,$s7
+	sbcs $t4,$t4,xzr
+
+	# Select based on carry
+	csel $s0,$s0,$t0,cc
+	csel $s1,$s1,$t1,cc
+	csel $s2,$s2,$t2,cc
+	csel $s3,$s3,$t3,cc
+
+	# Store results
+	stp $s0,$s1,[x0]
+	stp $s2,$s3,[x0,#16]
 ___
 }
+
 sub bn_mod_sub() {
-    my $mod = shift;
+	my $mod = shift;
 $code.=<<___;
-       /* Load inputs */
-       ldp             x3,x4,[x1]
-       ldp             x5,x6,[x1,#0x10]
-       /* Addition */
-       ldp             x7,x8,[x2]
-       ldp             x9,x10,[x2,#0x10]
-       subs    x3,x3,x7
-       sbcs    x4,x4,x8
-       sbcs    x5,x5,x9
-       sbcs    x6,x6,x10
-       sbc      x15,xzr,xzr
-       mov             x11,x3
-       mov             x12,x4
-       mov             x13,x5
-       mov             x14,x6
-       /* Add polynomial */
-       adr             x2,$mod
-       ldp             x7,x8,[x2]
-       ldp             x9,x10,[x2,#0x10]
-       adds    x11,x11,x7
-       adcs    x12,x12,x8
-       adcs    x13,x13,x9
-       adcs    x14,x14,x10
-       tst             x15,x15
-       csel    x3,x3,x11,eq
-       csel    x4,x4,x12,eq
-       csel    x5,x5,x13,eq
-       csel    x6,x6,x14,eq
-       /* Store results */
-       stp             x3,x4,[x0]
-       stp             x5,x6,[x0,#0x10]
+	# Load inputs
+	ldp $s0,$s1,[x1]
+	ldp $s2,$s3,[x1,#16]
+	ldp $s4,$s5,[x2]
+	ldp $s6,$s7,[x2,#16]
+
+	# Substraction
+	subs $s0,$s0,$s4
+	sbcs $s1,$s1,$s5
+	sbcs $s2,$s2,$s6
+	sbcs $s3,$s3,$s7
+	sbc $t4,xzr,xzr
+
+	# Load polynomial
+	adr	x2,$mod
+	ldp $s4,$s5,[x2]
+	ldp $s6,$s7,[x2,#16]
+
+	# Backup Substraction
+	mov $t0,$s0
+	mov $t1,$s1
+	mov $t2,$s2
+	mov $t3,$s3
+
+	# Add polynomial
+	adds $t0,$t0,$s4
+	adcs $t1,$t1,$s5
+	adcs $t2,$t2,$s6
+	adcs $t3,$t3,$s7
+	tst $t4,$t4
+
+	# Select based on carry
+	csel $s0,$s0,$t0,eq
+	csel $s1,$s1,$t1,eq
+	csel $s2,$s2,$t2,eq
+	csel $s3,$s3,$t3,eq
+
+	# Store results
+	stp $s0,$s1,[x0]
+	stp $s2,$s3,[x0,#16]
+___
+}
+
+sub bn_mod_div_by_2() {
+	my $mod = shift;
+$code.=<<___;
+	# Load inputs
+	ldp $s0,$s1,[x1]
+	ldp $s2,$s3,[x1,#16]
+
+	# Save the least significant bit
+	mov $t0,$s0
+
+	# Right shift 1
+	extr $s0,$s1,$s0,#1
+	extr $s1,$s2,$s1,#1
+	extr $s2,$s3,$s2,#1
+	lsr  $s3,$s3,#1
+
+	# Load mod
+	adr	x2,$mod
+	ldp $s4,$s5,[x2]
+	ldp $s6,$s7,[x2,#16]
+
+	# Parity check
+	tst	$t0,#1
+	csel $s4,xzr,$s4,eq
+	csel $s5,xzr,$s5,eq
+	csel $s6,xzr,$s6,eq
+	csel $s7,xzr,$s7,eq
+
+	# Add
+	adds $s0,$s0,$s4
+	adcs $s1,$s1,$s5
+	adcs $s2,$s2,$s6
+	adc  $s3,$s3,$s7
+
+	# Store results
+	stp $s0,$s1,[x0]
+	stp $s2,$s3,[x0,#16]
 ___
 }
 
 {
-my ($s0,$s1,$s2,$s3,$s4,$s5,$s6,$s7)=map("x$_",(7..14));
-
 $code.=<<___;
 #include "arm_arch.h"
 .arch  armv8-a
 .text
 
-# The polynomial
-.balign 64
+.align	5
+// The polynomial p
 .Lpoly:
-.quad  0xffffffffffffffff, 0xffffffff00000000, 0xffffffffffffffff, 0xfffffffeffffffff
-# The order of polynomial
+.quad	0xffffffffffffffff,0xffffffff00000000,0xffffffffffffffff,0xfffffffeffffffff
+// The order of polynomial n
 .Lord:
-.quad  0x53bbf40939d54123, 0x7203df6b21c6052b, 0xffffffffffffffff, 0xfffffffeffffffff
+.quad	0x53bbf40939d54123,0x7203df6b21c6052b,0xffffffffffffffff,0xfffffffeffffffff
+// (p + 1) / 2
+.Lpoly_div_2:
+.quad	0x8000000000000000,0xffffffff80000000,0xffffffffffffffff,0x7fffffff7fffffff
+// (n + 1) / 2
+.Lord_div_2:
+.quad	0xa9ddfa049ceaa092,0xb901efb590e30295,0xffffffffffffffff,0x7fffffff7fffffff
 
-### Right shift: in >> 1 ###
-       # void bn_rshift1(uint64_t *a)
-       # 1-bit right shift
-       # a             %x0
-       .globl  bn_rshift1
-       .type   bn_rshift1, %function
-       .align  6
-
+// void bn_rshift1(BN_ULONG *a);
+.globl	bn_rshift1
+.type	bn_rshift1,%function
+.align  5
 bn_rshift1:
+	# Load inputs
+	ldp $s0,$s1,[x0]
+	ldp $s2,$s3,[x0,#16]
 
-       # Load inputs
-       ldp x9, x10, [x0]
-       ldp x11, x12, [x0, #16]
+	# Right shift
+	extr $s0,$s1,$s0,#1
+	extr $s1,$s2,$s1,#1
+	extr $s2,$s3,$s2,#1
+	lsr  $s3,$s3,#1
 
+	# Store results
+	stp $s0,$s1,[x0]
+	stp $s2,$s3,[x0,#16]
 
-       # Right shift
-       extr x9, x10, x9, #1
-       extr x10, x11, x10, #1
-       extr x11, x12, x11, #1
-       lsr  x12, x12, #1
+	ret
+.size bn_rshift1,.-bn_rshift1
 
-       # Store results
-       stp x9, x10, [x0]
-       stp x11, x12, [x0, #16]
+// void bn_sub(BN_ULONG *r, const BN_ULONG *a, const BN_ULONG *b);
+.globl	bn_sub
+.type	bn_sub,%function
+.align  5
+bn_sub:
+	# Load inputs
+	ldp $s0,$s1,[x1]
+	ldp $s2,$s3,[x1,#16]
+	ldp $s4,$s5,[x2]
+	ldp $s6,$s7,[x2,#16]
 
-       ret
-       .size bn_rshift1, .-bn_rshift1
+	# Substraction
+	subs $s0,$s0,$s4
+	sbcs $s1,$s1,$s5
+	sbcs $s2,$s2,$s6
+	sbc  $s3,$s3,$s7
 
-### Modular div by 2: res = in/2 mod p ###
-       # void ecp_sm2p256_div_by_2(uint64_t *r, const uint64_t *a)
-       # Modular div by 2
-       # r             %x0
-       # a             %x1
-       .globl  ecp_sm2p256_div_by_2
-       .type   ecp_sm2p256_div_by_2, %function
-       .align  6
+	# Store results
+	stp $s0,$s1,[x0]
+	stp $s2,$s3,[x0,#16]
 
+	ret
+.size bn_sub,.-bn_sub
+
+// void ecp_sm2p256_div_by_2(BN_ULONG *r,const BN_ULONG *a);
+.globl	ecp_sm2p256_div_by_2
+.type	ecp_sm2p256_div_by_2,%function
+.align  5
 ecp_sm2p256_div_by_2:
-       eor x13, x13, x13
-       eor x15, x15, x15
+___
+	&bn_mod_div_by_2(".Lpoly_div_2");
+$code.=<<___;
+	ret
+.size ecp_sm2p256_div_by_2,.-ecp_sm2p256_div_by_2
 
-       # Load inputs
-       ldp x9, x10, [x1]
-       ldp x11, x12, [x1, #16]
+// void ecp_sm2p256_div_by_2_mod_ord(BN_ULONG *r,const BN_ULONG *a);
+.globl	ecp_sm2p256_div_by_2_mod_ord
+.type	ecp_sm2p256_div_by_2_mod_ord,%function
+.align  5
+ecp_sm2p256_div_by_2_mod_ord:
+___
+	&bn_mod_div_by_2(".Lord_div_2");
+$code.=<<___;
+	ret
+.size ecp_sm2p256_div_by_2_mod_ord,.-ecp_sm2p256_div_by_2_mod_ord
 
-       mov x14, x9
-
-       # Add polynomial
-       ldr x2, .Lpoly
-       ldr x3, .Lpoly+8
-       ldr x4, .Lpoly+16
-       ldr x5, .Lpoly+24
-       adds x9, x9, x2
-       adcs x10, x10, x3
-       adcs x11, x11, x4
-       adcs x12, x12, x5
-       adcs x13, x13, xzr
-
-       # Parity check
-       tst x14, #1
-       b.ne .not_equal_1
-       ldp x9, x10, [x1]
-       ldp x11, x12, [x1, #16]
-       mov x13, x15
-
-.not_equal_1:
-       extr x9, x10, x9, #1
-       extr x10, x11, x10, #1
-       extr x11, x12, x11, #1
-       extr x12, x13, x12, #1
-
-       # Store results
-       stp x9, x10, [x0]
-       stp x11, x12, [x0, #16]
-
-       ret
-       .size ecp_sm2p256_div_by_2, .-ecp_sm2p256_div_by_2
-
-
-### Modular mul by 3: r = 3*a mod p ###
-       # void ecp_sm2p256_mul_by_3(uint64_t *r, const uint64_t *a)
-       # Modular mul by 3
-       # r             %rdi
-       # a             %rsi
-       .globl  ecp_sm2p256_mul_by_3
-       .type   ecp_sm2p256_mul_by_3, %function
-       .align 6
-
+// void ecp_sm2p256_mul_by_3(BN_ULONG *r,const BN_ULONG *a);
+.globl	ecp_sm2p256_mul_by_3
+.type	ecp_sm2p256_mul_by_3,%function
+.align 5
 ecp_sm2p256_mul_by_3:
-       # Load inputs
-       ldp x3, x4, [x1]
-       ldp x5, x6, [x1, #16]
+	# Load inputs
+	ldp $s0,$s1,[x1]
+	ldp $s2,$s3,[x1,#16]
 
-       # 2*a
-       adds x3, x3, x3
-       adcs x4, x4, x4
-       adcs x5, x5, x5
-       adcs x6, x6, x6
-       adcs x7, xzr, xzr
+	# 2*a
+	adds $s0,$s0,$s0
+	adcs $s1,$s1,$s1
+	adcs $s2,$s2,$s2
+	adcs $s3,$s3,$s3
+	adcs $t4,xzr,xzr
 
-       mov x8, x3
-       mov x9, x4
-       mov x10, x5
-       mov x11, x6
+	mov $t0,$s0
+	mov $t1,$s1
+	mov $t2,$s2
+	mov $t3,$s3
 
-       # Sub polynomial
-       adr x2, .Lpoly
-       ldp x12, x13, [x2]
-       ldp x14, x15, [x2, #16]
-       subs x3, x3, x12
-       sbcs x4, x4, x13
-       sbcs x5, x5, x14
-       sbcs x6, x6, x15
-       sbcs x7, x7, xzr
+	# Sub polynomial
+	adr x2,.Lpoly
+	ldp $s4,$s5,[x2]
+	ldp $s6,$s7,[x2,#16]
+	subs $s0,$s0,$s4
+	sbcs $s1,$s1,$s5
+	sbcs $s2,$s2,$s6
+	sbcs $s3,$s3,$s7
+	sbcs $t4,$t4,xzr
 
-       csel x3, x3, x8, cs
-       csel x4, x4, x9, cs
-       csel x5, x5, x10, cs
-       csel x6, x6, x11, cs
-       eor x7, x7, x7
+	csel $s0,$s0,$t0,cs
+	csel $s1,$s1,$t1,cs
+	csel $s2,$s2,$t2,cs
+	csel $s3,$s3,$t3,cs
+	eor $t4,$t4,$t4
 
-       # 3*a
-       ldp x12, x13, [x1]
-       ldp x14, x15, [x1, #16]
-       adds x3, x3, x12
-       adcs x4, x4, x13
-       adcs x5, x5, x14
-       adcs x6, x6, x15
-       adcs x7, xzr, xzr
+	# 3*a
+	ldp $s4,$s5,[x1]
+	ldp $s6,$s7,[x1,#16]
+	adds $s0,$s0,$s4
+	adcs $s1,$s1,$s5
+	adcs $s2,$s2,$s6
+	adcs $s3,$s3,$s7
+	adcs $t4,xzr,xzr
 
-       mov x8, x3
-       mov x9, x4
-       mov x10, x5
-       mov x11, x6
+	mov $t0,$s0
+	mov $t1,$s1
+	mov $t2,$s2
+	mov $t3,$s3
 
-       # Sub polynomial
-       adr x2, .Lpoly
-       ldp x12, x13, [x2]
-       ldp x14, x15, [x2, #16]
-       subs x3, x3, x12
-       sbcs x4, x4, x13
-       sbcs x5, x5, x14
-       sbcs x6, x6, x15
-       sbcs x7, x7, xzr
+	# Sub polynomial
+	adr x2,.Lpoly
+	ldp $s4,$s5,[x2]
+	ldp $s6,$s7,[x2,#16]
+	subs $s0,$s0,$s4
+	sbcs $s1,$s1,$s5
+	sbcs $s2,$s2,$s6
+	sbcs $s3,$s3,$s7
+	sbcs $t4,$t4,xzr
 
-       csel x3, x3, x8, cs
-       csel x4, x4, x9, cs
-       csel x5, x5, x10, cs
-       csel x6, x6, x11, cs
+	csel $s0,$s0,$t0,cs
+	csel $s1,$s1,$t1,cs
+	csel $s2,$s2,$t2,cs
+	csel $s3,$s3,$t3,cs
 
-       # Store results
-       stp x3, x4, [x0]
-       stp x5, x6, [x0, #16]
+	# Store results
+	stp $s0,$s1,[x0]
+	stp $s2,$s3,[x0,#16]
 
-       ret
-       .size ecp_sm2p256_mul_by_3, .-ecp_sm2p256_mul_by_3
+	ret
+.size ecp_sm2p256_mul_by_3,.-ecp_sm2p256_mul_by_3
 
-### Modular add: r = a+b mod p ###
-       .globl  ecp_sm2p256_add
-       .type   ecp_sm2p256_add, %function
-       .align  6
-
+// void ecp_sm2p256_add(BN_ULONG *r,const BN_ULONG *a,const BN_ULONG *b);
+.globl	ecp_sm2p256_add
+.type	ecp_sm2p256_add,%function
+.align	5
 ecp_sm2p256_add:
 ___
-       &bn_mod_add(".Lpoly");
+	&bn_mod_add(".Lpoly");
 $code.=<<___;
-       ret
-       .size ecp_sm2p256_add, .-ecp_sm2p256_add
+	ret
+.size ecp_sm2p256_add,.-ecp_sm2p256_add
 
-### Modular sub: r = a-b mod p ###
-       .globl  ecp_sm2p256_sub
-       .type   ecp_sm2p256_sub, %function
-       .align  6
-
+// void ecp_sm2p256_sub(BN_ULONG *r,const BN_ULONG *a,const BN_ULONG *b);
+.globl	ecp_sm2p256_sub
+.type	ecp_sm2p256_sub,%function
+.align	5
 ecp_sm2p256_sub:
 ___
-       &bn_mod_sub(".Lpoly");
+	&bn_mod_sub(".Lpoly");
 $code.=<<___;
-       ret
-       .size ecp_sm2p256_sub, .-ecp_sm2p256_sub
+	ret
+.size ecp_sm2p256_sub,.-ecp_sm2p256_sub
 
-### Modular add: r = a+b mod n/p, where n = ord(p) ###
-       .globl  ecp_sm2p256_add_mod_ord
-       .type   ecp_sm2p256_add_mod_ord, %function
-       .align  6
-
-ecp_sm2p256_add_mod_ord:
-___
-       &bn_mod_add(".Lord");
-$code.=<<___;
-       ret
-       .size ecp_sm2p256_add_mod_ord, .-ecp_sm2p256_add_mod_ord
-
-### Modular sub: r = a-b mod n/p, where n = ord(p) ###
-       .globl  ecp_sm2p256_sub_mod_ord
-       .type   ecp_sm2p256_sub_mod_ord, %function
-       .align  6
-
+// void ecp_sm2p256_sub_mod_ord(BN_ULONG *r,const BN_ULONG *a,const BN_ULONG *b);
+.globl	ecp_sm2p256_sub_mod_ord
+.type	ecp_sm2p256_sub_mod_ord,%function
+.align	5
 ecp_sm2p256_sub_mod_ord:
 ___
-       &bn_mod_sub(".Lord");
+	&bn_mod_sub(".Lord");
 $code.=<<___;
-       ret
-       .size ecp_sm2p256_sub_mod_ord, .-ecp_sm2p256_sub_mod_ord
-
+	ret
+.size ecp_sm2p256_sub_mod_ord,.-ecp_sm2p256_sub_mod_ord
 
 .macro RDC
-       # registers map
-       # x3  x4  x5  x6  x15
-       # rsi rax rcx rdx rbx
+	# a = |  s7   | ... | s0  |, where si are 64-bit quantities
+	#   = |a15|a14| ... |a1|a0|, where ai are 32-bit quantities
+	# |    s7     |    s6     |    s5     |    s4     |
+	# | a15 | a14 | a13 | a12 | a11 | a10 | a9  | a8  |
+	# |    s3     |    s2     |    s1     |    s0     |
+	# | a7  | a6  | a5  | a4  | a3  | a2  | a1  | a0  |
+	# =================================================
+	# | a8  | a11 | a10 | a9  | a8  |   0 |    s4     | (+)
+	# | a9  | a15 |    s6     | a11 |   0 | a10 | a9  | (+)
+	# | a10 |   0 | a14 | a13 | a12 |   0 |    s5     | (+)
+	# | a11 |   0 |    s7     | a13 |   0 | a12 | a11 | (+)
+	# | a12 |   0 |    s7     | a13 |   0 |    s6     | (+)
+	# | a12 |   0 |   0 | a15 | a14 |   0 | a14 | a13 | (+)
+	# | a13 |   0 |   0 |   0 | a15 |   0 | a14 | a13 | (+)
+	# | a13 |   0 |   0 |   0 |   0 |   0 |    s7     | (+)
+	# | a14 |   0 |   0 |   0 |   0 |   0 |    s7     | (+)
+	# | a14 |   0 |   0 |   0 |   0 |   0 |   0 | a15 | (+)
+	# | a15 |   0 |   0 |   0 |   0 |   0 |   0 | a15 | (+)
+	# | a15 |   0 |   0 |   0 |   0 |   0 |   0 |   0 | (+)
+	# |    s7     |   0 |   0 |   0 |   0 |   0 |   0 | (+)
+	# |   0 |   0 |   0 |   0 |   0 | a8  |   0 |   0 | (-)
+	# |   0 |   0 |   0 |   0 |   0 | a9  |   0 |   0 | (-)
+	# |   0 |   0 |   0 |   0 |   0 | a13 |   0 |   0 | (-)
+	# |   0 |   0 |   0 |   0 |   0 | a14 |   0 |   0 | (-)
+	# | U[7]| U[6]| U[5]| U[4]| U[3]| U[2]| U[1]| U[0]|
+	# |    V[3]   |    V[2]   |    V[1]   |    V[0]   |
 
-       # r = a mod p256
-       # a = a15 | a14 | ... | a0, where ai are 32â€“bit quantities
-       # | a7  | a6  | a5  | a4  | a3  | a2  | a1  | a0  | (+)
-       # | a8  | a11 | a10 | a9  | a8  |   0 | a9  | a8  | (+)
-       # | a9  | a14 | a13 | a12 | a11 |   0 | a10 | a9  | (+)
-       # | a10 | a15 | a14 | a13 | a12 |   0 | a11 | a10 | (+)
-       # | a11 |   0 | a15 | a14 | a13 |   0 | a12 | a11 | (+)
-       # | a12 |   0 | a15 | a14 | a13 |   0 | a13 | a12 | (+)
-       # | a12 |   0 |   0 | a15 | a14 |   0 | a14 | a13 | (+)
-       # | a13 |   0 |   0 |   0 | a15 |   0 | a14 | a13 | (+)
-       # | a13 |   0 |   0 |   0 |   0 |   0 | a15 | a14 | (+)
-       # | a14 |   0 |   0 |   0 |   0 |   0 | a15 | a14 | (+)
-       # | a14 |   0 |   0 |   0 |   0 |   0 |   0 | a15 | (+)
-       # | a15 |   0 |   0 |   0 |   0 |   0 |   0 | a15 | (+)
-       # | a15 |   0 |   0 |   0 |   0 |   0 |   0 |   0 | (+)
-       # | a15 |   0 |   0 |   0 |   0 |   0 |   0 |   0 | (+)
-       # |   0 |   0 |   0 |   0 |   0 | a8  |   0 |   0 | (-)
-       # |   0 |   0 |   0 |   0 |   0 | a9  |   0 |   0 | (-)
-       # |   0 |   0 |   0 |   0 |   0 | a13 |   0 |   0 | (-)
-       # |   0 |   0 |   0 |   0 |   0 | a14 |   0 |   0 | (-)
-       # | U[7]| U[6]| U[5]| U[4]| U[3]| U[2]| U[1]| U[0]|
-       # |    V[3]   |    V[2]   |   V[1]    |    V[0]   |
-       # until r < p256
-       # $s7 (a15|a14), $s6 (a13|a12), $s5 (a11|a10), $s4 (a9|a8)
-       # $s3 (a7|a6), $s2 (a5|a4), $s1 (a3|a2), $s0 (a1|a0)
+	# 1. 64-bit addition
+	# t2=s6+s7+s7
+	adds $t2,$s6,$s7
+	adcs $t1,xzr,xzr
+	adds $t2,$t2,$s7
+	adcs $t1,$t1,xzr
+	# t3=s4+s5+t2
+	adds $t3,$s4,$t2
+	adcs $t4,$t1,xzr
+	adds $t3,$t3,$s5
+	adcs $t4,$t4,xzr
+	# sum
+	adds $s0,$s0,$t3
+	adcs $s1,$s1,$t4
+	adcs $s2,$s2,$t2
+	adcs $s3,$s3,$s7
+	adcs $t0,xzr,xzr
+	adds $s3,$s3,$t1
+	adcs $t0,$t0,xzr
 
-       # 1. 64-bit addition
-       eor x3, x3, x3                  // to store all carry
-       eor x4, x4, x4
-       mov x5, $s6                             // rcx <- $s6
-       mov x6, $s4                             // rdx <- $s4
-       # a13 | a12
-       adds x5, x5, $s7                        // rcx <- $s6 + $s7
-       adcs x4, xzr, xzr               // rax <- carry($s6+$s7)
-       adds x5, x5, $s7                        // rcx <- $s6 + 2*$s7
-       adcs x4, x4, xzr
-       # a9 | a8
-       mov x15, x4                             // rbx <- carry (rax)
-       adds x6, x6, x5                 // rdx <- $s4 + $s6 + 2*$s7
-       adcs x15, x15, xzr
-       adds x6, x6, $s5                        // rdx <- $s4 + $s5 + $s6 + 2*$s7
-       adcs x15, x15, xzr
-       # sum
-       adds $s0, $s0, x6                       // $s0 <- $s0 + $s4 + $s5 + $s6 + 2*$s7
-       adcs $s1, $s1, x15              // $s1 <- $s1 + rbx + carry
-       adcs $s2, $s2, x5                       // $s2 <- $s2 + $s6 + 2*$s7 + carry
-       adcs $s3, $s3, $s7
-       adcs x3, xzr, xzr
-       # add carry
-       adds $s3, $s3, x4
-       adcs x3, x3, xzr                // all carry
+	stp $s0,$s1,[sp,#32]
+	stp $s2,$s3,[sp,#48]
 
-       stp $s0, $s1, [sp, #32]
-       stp $s2, $s3, [sp, #48]
-       # 2. 4 -> 8  64-bit to 32-bit spread
-       mov x4, #0xffffffff
-       mov $s0, $s4
-       mov $s1, $s5
-       mov $s2, $s6
-       mov $s3, $s7
-       and $s0, $s0, x4                // a8
-       and $s1, $s1, x4                // a10
-       and $s2, $s2, x4                // a12
-       and $s3, $s3, x4                // a14
-       lsr $s4, $s4, #32               // a9
-       lsr $s5, $s5, #32               // a11
-       lsr $s6, $s6, #32               // a13
-       lsr $s7, $s7, #32               // a15
-       # 3. 32-bit addition
-       mov x4, $s3
-       add x4, x4, $s2         // rax <- a12 + a14
-       mov x15, $s3
-       add     x15, x15, $s1   // rbx <- a10 + a14
-       mov x5, $s7
-       add x5, x5, $s6         // rcx <- a13 + a15
-       mov x6, $s0
-       add x6, x6, $s4         // rdx <- a8 + a9
-       add $s7, $s7, $s5               // $s7 <-  a11 + a15
-       mov $s2, x5                     // $s2 <- a13 + a15
-       add $s2, $s2, x4                // $s2 <- a12 + a13 + a14 + a15
-       add $s1, $s1, $s2               // $s1 <- a10 + a12 + a13 + a14 + a15
-       add $s1, $s1, $s2               // $s1 <- a10 + 2*(a12 + a13 + a14 + a15)
-       add $s1, $s1, x6                // $s1 <- a8 + a9 + a10 + 2*(a12 + a13 + a14 + a15)
-       add $s1, $s1, $s5               // $s1 <- a8 + a9 + a10 + a11 + 2*(a12 + a13 + a14 + a15)
-       add $s2, $s2, $s6               // $s2 <- a12 + 2*a13 + a14 + a15
-       add $s2, $s2, $s5               // $s2 <- a11 + a12 + 2*a13 + a14 + a15
-       add $s2, $s2, $s0               // $s2 <- a8 + a11 + a12 + 2*a13 + a14 + a15
-       add x6, x6, $s3         // rdx <- a8 + a9 + a14
-       add x6, x6, $s6         // rdx <- a8 + a9 + a13 + a14
-       add $s4, $s4, x5                // $s4 <- a9 + a13 + a15
-       add $s5, $s5, $s4               // $s5 <- a9 + a11 + a13 + a15
-       add $s5, $s5, x5                // $s5 <- a9 + a11 + 2*(a13 + a15)
-       add x4, x4, x15         // rax <- a10 + a12 + 2*a14
+	# 2. 64-bit to 32-bit spread
+	mov $t1,#0xffffffff
+	mov $s0,$s4
+	mov $s1,$s5
+	mov $s2,$s6
+	mov $s3,$s7
+	and $s0,$s0,$t1	// a8
+	and $s1,$s1,$t1	// a10
+	and $s2,$s2,$t1	// a12
+	and $s3,$s3,$t1	// a14
+	lsr $s4,$s4,#32	// a9
+	lsr $s5,$s5,#32	// a11
+	lsr $s6,$s6,#32	// a13
+	lsr $s7,$s7,#32	// a15
 
-       # U[0]  $s5             a9 + a11 + 2*(a13 + a15)
-       # U[1]  %rax    a10 + a12 + 2*a14
-       # U[2]
-       # U[3]  $s2             a8 + a11 + a12 + 2*a13 + a14 + a15
-       # U[4]  $s4             a9 + a13 + a15
-       # U[5]  %rbx    a10 + a14
-       # U[6]  $s7             a11 + a15
-       # U[7]  $s1             a8 + a9 + a10 + a11 + 2*(a12 + a13 + a14 + a15)
-       # sub   %rdx    a8 + a9 + a13 + a14
+	# 3. 32-bit addition
+	add $t1,$a14,$a12   // t1 <- a12 + a14
+	add $t2,$a15,$a13   // t2 <- a13 + a15
+	add $t3,$a8,$a9     // t3 <- a8 + a9
+	add	$t4,$a14,$a10   // t4 <- a10 + a14
+	add $a15,$a15,$a11  // a15 <- a11 + a15
+	add $a12,$t2,$t1	// a12 <- a12 + a13 + a14 + a15
+	add $a10,$a10,$a12	// a10 <- a10 + a12 + a13 + a14 + a15
+	add $a10,$a10,$a12	// a10 <- a10 + 2*(a12 + a13 + a14 + a15)
+	add $a10,$a10,$t3	// a10 <- a8 + a9 + a10 + 2*(a12 + a13 + a14 + a15)
+	add $a10,$a10,$a11	// a10 <- a8 + a9 + a10 + a11 + 2*(a12 + a13 + a14 + a15)
+	add $a12,$a12,$a13	// a12 <- a12 + 2*a13 + a14 + a15
+	add $a12,$a12,$a11	// a12 <- a11 + a12 + 2*a13 + a14 + a15
+	add $a12,$a12,$a8	// a12 <- a8 + a11 + a12 + 2*a13 + a14 + a15
+	add $t3,$t3,$a14	// t3 <- a8 + a9 + a14
+	add $t3,$t3,$a13	// t3 <- a8 + a9 + a13 + a14
+	add $a9,$a9,$t2		// a9 <- a9 + a13 + a15
+	add $a11,$a11,$a9	// a11 <- a9 + a11 + a13 + a15
+	add $a11,$a11,$t2	// a11 <- a9 + a11 + 2*(a13 + a15)
+	add $t1,$t1,$t4		// t1 <- a10 + a12 + 2*a14
 
-       # $s0 $s3 $s6  %rcx
+	# U[0]  s5	a9 + a11 + 2*(a13 + a15)
+	# U[1]  t1	a10 + a12 + 2*a14
+	# U[2] -t3	a8 + a9 + a13 + a14
+	# U[3]  s2	a8 + a11 + a12 + 2*a13 + a14 + a15
+	# U[4]  s4	a9 + a13 + a15
+	# U[5]  t4	a10 + a14
+	# U[6]  s7	a11 + a15
+	# U[7]  s1	a8 + a9 + a10 + a11 + 2*(a12 + a13 + a14 + a15)
 
-       # 4. 8 -> 4  32-bit to 64-bit
-       # sub %rdx
-       mov $s0, x4
-       lsl $s0, $s0, #32
-       extr x4, $s2, x4, #32
-       extr $s2, x15, $s2, #32
-       extr x15, $s1, x15, #32
-       lsr $s1, $s1, #32
+	# 4. 32-bit to 64-bit
+	lsl $s0,$t1,#32
+	extr $t1,$s2,$t1,#32
+	extr $s2,$t4,$s2,#32
+	extr $t4,$s1,$t4,#32
+	lsr $s1,$s1,#32
 
-       # 5. 64-bit addition
-       adds $s5, $s5, $s0
-       adcs x4, x4, xzr
-       adcs $s4, $s4, $s2
-       adcs $s7, $s7, x15
-       adcs x3, x3, $s1
+	# 5. 64-bit addition
+	adds $s5,$s5,$s0
+	adcs $t1,$t1,xzr
+	adcs $s4,$s4,$s2
+	adcs $s7,$s7,$t4
+	adcs $t0,$t0,$s1
 
-       # V[0] $s5
-       # V[1] %rax
-       # V[2] $s4
-       # V[3] $s7
-       # carry %rsi
-       # sub %rdx
+	# V[0]	s5
+	# V[1]	t1
+	# V[2]	s4
+	# V[3]	s7
+	# carry	t0
+	# sub	t3
 
-       # 5. ADD & SUB
-       ldp $s0, $s1, [sp, #32]
-       ldp $s2, $s3, [sp, #48]
+	# 5. Process s0-s3
+	ldp $s0,$s1,[sp,#32]
+	ldp $s2,$s3,[sp,#48]
+	# add with V0-V3
+	adds $s0,$s0,$s5
+	adcs $s1,$s1,$t1
+	adcs $s2,$s2,$s4
+	adcs $s3,$s3,$s7
+	adcs $t0,$t0,xzr
+	# sub with t3
+	subs $s1,$s1,$t3
+	sbcs $s2,$s2,xzr
+	sbcs $s3,$s3,xzr
+	sbcs $t0,$t0,xzr
 
-       # ADD
-       adds $s0, $s0, $s5
-       adcs $s1, $s1, x4
-       adcs $s2, $s2, $s4
-       adcs $s3, $s3, $s7
-       adcs x3, x3, xzr
-       # SUB
-       subs $s1, $s1, x6
-       sbcs $s2, $s2, xzr
-       sbcs $s3, $s3, xzr
-       sbcs x3, x3, xzr
+	# 6. MOD
+	# First Mod
+	lsl $t1,$t0,#32
+	subs $t2,$t1,$t0
 
-       # 6. MOD
-       # First Mod
-       mov x4, x3
-       lsl x4, x4, #32
-       mov x5, x4
-       subs x4, x4, x3
+	adds $s0,$s0,$t0
+	adcs $s1,$s1,$t2
+	adcs $s2,$s2,xzr
+	adcs $s3,$s3,$t1
 
-       adds $s0, $s0, x3
-       adcs $s1, $s1, x4
-       adcs $s2, $s2, xzr
-       adcs $s3, $s3, x5
+	# Last Mod
+	# return y - p if y > p else y
+	mov $s4,$s0
+	mov $s5,$s1
+	mov $s6,$s2
+	mov $s7,$s3
 
-       # Last Mod
-       # return y - p if y > p else y
-       mov $s4, $s0
-       mov $s5, $s1
-       mov $s6, $s2
-       mov $s7, $s3
+	adr $t0,.Lpoly
+	ldp $t1,$t2,[$t0]
+	ldp $t3,$t4,[$t0,#16]
 
-       adr x3, .Lpoly
-       ldp x4, x15, [x3]
-       ldp x16, x17, [x3, #16]
+	adcs $t5,xzr,xzr
 
-       eor x5, x5, x5
-       adcs x5, xzr, xzr
+	subs $s0,$s0,$t1
+	sbcs $s1,$s1,$t2
+	sbcs $s2,$s2,$t3
+	sbcs $s3,$s3,$t4
+	sbcs $t5,$t5,xzr
 
-       subs $s0, $s0, x4
-       sbcs $s1, $s1, x15
-       sbcs $s2, $s2, x16
-       sbcs $s3, $s3, x17
-       sbcs x5, x5, xzr
+	csel $s0,$s0,$s4,cs
+	csel $s1,$s1,$s5,cs
+	csel $s2,$s2,$s6,cs
+	csel $s3,$s3,$s7,cs
 
-       csel $s0, $s0, $s4, cs
-       csel $s1, $s1, $s5, cs
-       csel $s2, $s2, $s6, cs
-       csel $s3, $s3, $s7, cs
-
-       stp $s0, $s1, [x0]
-       stp $s2, $s3, [x0, #16]
 .endm
 
-### Modular mul: r = a*b mod p ###
-       # void ecp_sm2p256_mul(uint64_t *r, const uint64_t *a, const uint64_t *b)
-       # 256-bit modular multiplication in SM2
-       # r             %rdi
-       # a             %rsi
-       # b             %rdx
-       # registers map
-       # $s0  $s1  $s2  $s3  $s4  $s5  $s6  $s7
-       # x7  x8  x9  x10 x11 x12 x13 x14 x3  x4  x5  x6  x15
-       # r8  r9  r10 r11 r12 r13 r14 r15 rax rdx rbx rcx rsi
-       .globl  ecp_sm2p256_mul
-       .type   ecp_sm2p256_mul, %function
-       .align 6
-
-
+// void ecp_sm2p256_mul(BN_ULONG *r, const BN_ULONG *a, const BN_ULONG *b);
+.globl	ecp_sm2p256_mul
+.type	ecp_sm2p256_mul,%function
+.align 5
 ecp_sm2p256_mul:
-       # Store scalar registers
-       stp     x29, x30, [sp, #-80]!
-    add     x29, sp, #0
-    stp     x16, x17, [sp, #16]
-       stp     x18, x19, [sp, #64]
+	# Store scalar registers
+	stp	 x29,x30,[sp,#-80]!
+	add	 x29,sp,#0
+	stp	 x16,x17,[sp,#16]
+	stp	 x18,x19,[sp,#64]
 
-       # Load inputs
-       ldp $s0, $s1, [x1]
-       ldp $s2, $s3, [x1, #16]
-       ldp $s4, $s5, [x2]
-       ldp $s6, $s7, [x2, #16]
+	# Load inputs
+	ldp $s0,$s1,[x1]
+	ldp $s2,$s3,[x1,#16]
+	ldp $s4,$s5,[x2]
+	ldp $s6,$s7,[x2,#16]
 
 ### multiplication ###
+	# ========================
+	#             s3 s2 s1 s0
+	# *           s7 s6 s5 s4
+	# ------------------------
+	# +           s0 s0 s0 s0
+	#              *  *  *  *
+	#             s7 s6 s5 s4
+	#          s1 s1 s1 s1
+	#           *  *  *  *
+	#          s7 s6 s5 s4
+	#       s2 s2 s2 s2
+	#        *  *  *  *
+	#       s7 s6 s5 s4
+	#    s3 s3 s3 s3
+	#     *  *  *  *
+	#    s7 s6 s5 s4
+	# ------------------------
+	# s7 s6 s5 s4 s3 s2 s1 s0
+	# ========================
 
-       # ========================
-       #             $s7 $s6 $s5 $s4
-       # *           $s3 $s2 $s1 $s0
-       # ------------------------
-       # +           $s0 $s0 $s0 $s0
-       #              *  *  *  *
-       #             $s7 $s6 $s5 $s4
-       #          $s1 $s1 $s1 $s1
-       #           *  *  *  *
-       #          $s7 $s6 $s5 $s4
-       #       $s2 $s2 $s2 $s2
-       #        *  *  *  *
-       #       $s7 $s6 $s5 $s4
-       #    $s3 $s3 $s3 $s3
-       #     *  *  *  *
-       #    $s7 $s6 $s5 $s4
-       # ------------------------
-       # $s7 $s6 $s5 $s4 $s3 $s2 $s1 $s0
-       # ========================
+### s0*s4 ###
+	mul $t5,$s0,$s4
+	umulh $t2,$s0,$s4
 
-### $s0*$s4 ###
-       mul x16, $s0, $s4
-       umulh x5, $s0, $s4
-       eor x6, x6, x6
+### s1*s4 + s0*s5 ###
+	mul $t0,$s1,$s4
+	umulh $t1,$s1,$s4
+	adds $t2,$t2,$t0
+	adcs $t3,$t1,xzr
 
-### $s1*$s4 + $s0*$s5 ###
-       mul x3, $s1, $s4
-       umulh x4, $s1, $s4
-       adds x5, x5, x3
-       adcs x6, x6, x4
-       eor x15, x15, x15
+	mul $t0,$s0,$s5
+	umulh $t1,$s0,$s5
+	adds $t2,$t2,$t0
+	adcs $t3,$t3,$t1
+	adcs $t4,xzr,xzr
 
-       mul x3, $s0, $s5
-       umulh x4, $s0, $s5
-       adds x5, x5, x3
-       adcs x6, x6, x4
-       adcs x15, x15, xzr
-       mov x17, x5
-       eor x5, x5, x5
+### s2*s4 + s1*s5 + s0*s6 ###
+	mul $t0,$s2,$s4
+	umulh $t1,$s2,$s4
+	adds $t3,$t3,$t0
+	adcs $t4,$t4,$t1
 
-### $s2 * $s4 + $s1 * $s5 + $s0 *$s6 ###
-       mul x3, $s2, $s4
-       umulh x4, $s2, $s4
-       adds x6, x6, x3
-       adcs x15, x15, x4
+	mul $t0,$s1,$s5
+	umulh $t1,$s1,$s5
+	adds $t3,$t3,$t0
+	adcs $t4,$t4,$t1
+	adcs $t6,xzr,xzr
 
-       mul x3, $s1, $s5
-       umulh x4, $s1, $s5
-       adds x6, x6, x3
-       adcs x15, x15, x4
-       adcs x5, x5, xzr
+	mul $t0,$s0,$s6
+	umulh $t1,$s0,$s6
+	adds $t3,$t3,$t0
+	adcs $t4,$t4,$t1
+	adcs $t6,$t6,xzr
 
-       mul x3, $s0, $s6
-       umulh x4, $s0, $s6
-       adds x6, x6, x3
-       adcs x15, x15, x4
-       adcs x5, x5, xzr
-       mov x18, x6
-       eor x6, x6, x6
+### s3*s4 + s2*s5 + s1*s6 + s0*s7 ###
+	mul $t0,$s3,$s4
+	umulh $t1,$s3,$s4
+	adds $t4,$t4,$t0
+	adcs $t6,$t6,$t1
+	adcs $t7,xzr,xzr
 
-### $s3*$s4 + $s2*$s5 + $s1*$s6 + $s0*$s7 ###
-       mul x3, $s3, $s4
-       umulh x4, $s3, $s4
-       adds x15, x15, x3
-       adcs x5, x5, x4
-       adcs x6, x6, xzr
+	mul $t0,$s2,$s5
+	umulh $t1,$s2,$s5
+	adds $t4,$t4,$t0
+	adcs $t6,$t6,$t1
+	adcs $t7,$t7,xzr
 
-       mul x3, $s2, $s5
-       umulh x4, $s2, $s5
-       adds x15, x15, x3
-       adcs x5, x5, x4
-       adcs x6, x6, xzr
+	mul $t0,$s1,$s6
+	umulh $t1,$s1,$s6
+	adds $t4,$t4,$t0
+	adcs $t6,$t6,$t1
+	adcs $t7,$t7,xzr
 
-       mul x3, $s1, $s6
-       umulh x4, $s1, $s6
-       adds x15, x15, x3
-       adcs x5, x5, x4
-       adcs x6, x6, xzr
+	mul $t0,$s0,$s7
+	umulh $t1,$s0,$s7
+	adds $t4,$t4,$t0
+	adcs $t6,$t6,$t1
+	adcs $t7,$t7,xzr
 
-       mul x3, $s0 ,$s7
-       umulh x4, $s0, $s7
-       adds x15, x15, x3
-       adcs x5, x5, x4
-       adcs x6, x6, xzr
-       mov x19, x15
-       eor x15, x15, x15
+### s3*s5 + s2*s6 + s1*s7 ###
+	mul $t0,$s3,$s5
+	umulh $t1,$s3,$s5
+	adds $t6,$t6,$t0
+	adcs $t7,$t7,$t1
+	adcs $t8,xzr,xzr
 
-### $s3*$s5 + $s2*$s6 + $s1*$s7 ###
-       mul x3, $s3, $s5
-       umulh x4, $s3, $s5
-       adds x5, x5, x3
-       adcs x6, x6, x4
-       # carry
-       adcs x15, x15, xzr
+	mul $t0,$s2,$s6
+	umulh $t1,$s2,$s6
+	adds $t6,$t6,$t0
+	adcs $t7,$t7,$t1
+	adcs $t8,$t8,xzr
 
-       mul x3, $s2, $s6
-       umulh x4, $s2, $s6
-       adds x5, x5, x3
-       adcs x6, x6, x4
-       adcs x15, x15, xzr
+	mul $t0,$s1,$s7
+	umulh $t1,$s1,$s7
+	adds $s4,$t6,$t0
+	adcs $t7,$t7,$t1
+	adcs $t8,$t8,xzr
 
-       mul x3, $s1, $s7
-       umulh x4, $s1, $s7
-       adds x5, x5, x3
-       adcs x6, x6, x4
-       adcs x15, x15, xzr
-       mov $s4, x5
-       eor x5, x5, x5
+### s3*s6 + s2*s7 ###
+	mul $t0,$s3,$s6
+	umulh $t1,$s3,$s6
+	adds $t7,$t7,$t0
+	adcs $t8,$t8,$t1
+	adcs $t6,xzr,xzr
 
-### $s3*$s6 + $s2*$s7 ###
-       mul x3, $s3, $s6
-       umulh x4, $s3, $s6
-       adds x6, x6, x3
-       adcs x15, x15, x4
-       adcs x5, x5, xzr
+	mul $t0,$s2,$s7
+	umulh $t1,$s2,$s7
+	adds $s5,$t7,$t0
+	adcs $t8,$t8,$t1
+	adcs $t6,$t6,xzr
 
-       mul x3, $s2, $s7
-       umulh x4, $s2, $s7
-       adds x6, x6, x3
-       adcs x15, x15, x4
-       adcs x5, x5, xzr
-       mov $s5, x6
+### s3*s7 ###
+	mul $t0,$s3,$s7
+	umulh $t1,$s3,$s7
+	adds $s6,$t8,$t0
+	adcs $s7,$t6,$t1
 
-### $s3*$s7 ###
-       mul x3, $s3, $s7
-       umulh x4, $s3, $s7
-       adds x15, x15, x3
-       adcs x5, x5, x4
-       mov $s6, x15
-       mov $s7, x5
+	mov $s0,$t5
+	mov $s1,$t2
+	mov $s2,$t3
+	mov $s3,$t4
 
-       mov $s0, x16
-       mov $s1, x17
-       mov $s2, x18
-       mov $s3, x19
-
-       # result of mul: $s7 $s6 $s5 $s4 $s3 $s2 $s1 $s0
+	# result of mul: s7 s6 s5 s4 s3 s2 s1 s0
 
 ### Reduction ###
-       RDC
+	RDC
 
-       # Restore scalar registers
-       ldp x16, x17, [sp, #16]
-       ldp x18, x19, [sp, #64]
-       ldp x29, x30, [sp], #80
+	stp $s0,$s1,[x0]
+	stp $s2,$s3,[x0,#16]
 
-       ret
-       .size ecp_sm2p256_mul, .-ecp_sm2p256_mul
+	# Restore scalar registers
+	ldp x16,x17,[sp,#16]
+	ldp x18,x19,[sp,#64]
+	ldp x29,x30,[sp],#80
 
-       .globl ecp_sm2p256_sqr
-       .type ecp_sm2p256_sqr, %function
+	ret
+.size ecp_sm2p256_mul,.-ecp_sm2p256_mul
 
-### Modular sqr: r = a^2 mod p ###
-       # void ecp_sm2p256_sqr(uint64_t *r, const uint64_t *a)
-       # 256-bit modular multiplication in SM2 ###
-       # r      %rdi
-       # a      %rsi
-       # registers map
-       # $s0  $s1  $s2  $s3  $s4  $s5  $s6  $s7
-       # x7  x8  x9  x10 x11 x12 x13 x14 x3  x4  x5  x6  x15 x16 x17
-       # r8  r9  r10 r11 r12 r13 r14 r15 rax rdx rbx rcx rsi rbp rdi
-       .globl  ecp_sm2p256_sqr
-       .type   ecp_sm2p256_sqr, %function
-       .align  6
+// void ecp_sm2p256_sqr(BN_ULONG *r, const BN_ULONG *a);
+.globl ecp_sm2p256_sqr
+.type ecp_sm2p256_sqr,%function
+.align	5
 
 ecp_sm2p256_sqr:
-       # Store scalar registers
-       stp     x29, x30, [sp, #-64]!
-    add     x29, sp, #0
-    stp     x16, x17, [sp, #16]
+	# Store scalar registers
+	stp	 x29,x30,[sp,#-80]!
+	add	 x29,sp,#0
+	stp	 x16,x17,[sp,#16]
+	stp	 x18,x19,[sp,#64]
 
-       # Load inputs
-       ldp $s4, $s5, [x1]
-       ldp $s6, $s7, [x1, #16]
+	# Load inputs
+	ldp $s4,$s5,[x1]
+	ldp $s6,$s7,[x1,#16]
 
 ### square ###
+	# ========================
+	#             s7 s6 s5 s4
+	# *           s7 s6 s5 s4
+	# ------------------------
+	# +           s4 s4 s4 s4
+	#              *  *  *  *
+	#             s7 s6 s5 s4
+	#          s5 s5 s5 s5
+	#           *  *  *  *
+	#          s7 s6 s5 s4
+	#       s6 s6 s6 s6
+	#        *  *  *  *
+	#       s7 s6 s5 s4
+	#    s7 s7 s7 s7
+	#     *  *  *  *
+	#    s7 s6 s5 s4
+	# ------------------------
+	# s7 s6 s5 s4 s3 s2 s1 s0
+	# ========================
 
-       # ========================
-       #             $s7 $s6 $s5 $s4
-       # *           $s7 $s6 $s5 $s4
-       # ------------------------
-       # +           $s4 $s4 $s4 $s4
-       #              *  *  *  *
-       #             $s7 $s6 $s5 $s4
-       #          $s5 $s5 $s5 $s5
-       #           *  *  *  *
-       #          $s7 $s6 $s5 $s4
-       #       $s6 $s6 $s6 $s6
-       #        *  *  *  *
-       #       $s7 $s6 $s5 $s4
-       #    $s7 $s7 $s7 $s7
-       #     *  *  *  *
-       #    $s7 $s6 $s5 $s4
-       # ------------------------
-       # $s7 $s6 $s5 $s4 $s3 $s2 $s1 $s0
-       # ========================
+### s4*s5 ###
+	mul $s1,$s4,$s5
+	umulh $s2,$s4,$s5
 
-### $s1 <- $s4*$s5, $s2 <- carry ###
-       mul $s1, $s4, $s5
-       umulh $s2, $s4, $s5
-       eor $s3, $s3, $s3
+### s4*s6 ###
+	mul $t0,$s6,$s4
+	umulh $s3,$s6,$s4
+	adds $s2,$s2,$t0
+	adcs $s3,$s3,xzr
 
-### $s2 <- $s4*$s6 + carry($s2), $s3 <- carry ###
-       mul x3, $s6, $s4
-       umulh $s3, $s6, $s4
-       adds $s2, $s2, x3
-       adcs $s3, $s3, xzr
-       eor $s0, $s0, $s0
+### s4*s7 + s5*s6 ###
+	mul $t0,$s7,$s4
+	umulh $t1,$s7,$s4
+	adds $s3,$s3,$t0
+	adcs $s0,$t1,xzr
 
-### $s3 <- $s4*$s7 + $s5*$s6 + carry($s3), $s0 <- carry ###
-       mul x3, $s7, $s4
-       umulh x4, $s7, $s4
-       adds $s3, $s3, x3
-       adcs $s0, $s0, x4
-       eor x5, x5, x5
+	mul $t0,$s6,$s5
+	umulh $t1,$s6,$s5
+	adds $s3,$s3,$t0
+	adcs $s0,$s0,$t1
+	adcs $t2,xzr,xzr
 
-       mul x3, $s6, $s5
-       umulh x4, $s6, $s5
-       adds $s3, $s3, x3
-       adcs $s0, $s0, x4
-       adcs x5, xzr, xzr
+### s5*s7 ###
+	mul $t0,$s7,$s5
+	umulh $t1,$s7,$s5
+	adds $s0,$s0,$t0
+	adcs $t2,$t2,$t1
 
-### $s0 <- $s5*$s7 + carry($s0), rbx <- carry ###
-       mul x3, $s7, $s5
-       umulh x4, $s7, $s5
-       adds $s0, $s0, x3
-       adcs x5, x5, x4
-       eor x6, x6, x6
+### s6*s7 ###
+	mul $t0,$s7,$s6
+	umulh $t1,$s7,$s6
+	adds $t2,$t2,$t0
+	adcs $t3,$t1,xzr
 
-### rbx <- $s6*$s7 + carry(rbx), rcx <- carry ###
-       mul x3, $s7, $s6
-       umulh x4, $s7, $s6
-       adds x5, x5, x3
-       adcs x6, x6, x4
-       eor x15, x15, x15
+### 2*(t3,t2,s0,s3,s2,s1) ###
+	adds $s1,$s1,$s1
+	adcs $s2,$s2,$s2
+	adcs $s3,$s3,$s3
+	adcs $s0,$s0,$s0
+	adcs $t2,$t2,$t2
+	adcs $t3,$t3,$t3
+	adcs $t4,xzr,xzr
 
-### 2*$s0|1|2|3 ###
-       adds $s1, $s1, $s1
-       adcs $s2, $s2, $s2
-       adcs $s3, $s3, $s3
-       adcs $s0, $s0, $s0
-       adcs x5, x5, x5
-       # update carry
-       adcs x6, x6, x6
-       adcs x15, xzr, xzr
+### s4*s4 ###
+	mul $t5,$s4,$s4
+	umulh $t6,$s4,$s4
 
-### rbp <- $s4*$s4, carry <- rdi ###
-       mul x16, $s4, $s4
-       umulh x17, $s4, $s4
+### s5*s5 ###
+	mul $s4,$s5,$s5
+	umulh $s5,$s5,$s5
 
-### $s4 <- $s5*$s5, carry <- $s5 ###
-       mul $s4, $s5, $s5
-       umulh $s5, $s5, $s5
+### s6*s6 ###
+	mul $t0,$s6,$s6
+	umulh $t1,$s6,$s6
 
-### $s6*$s6 ###
-       mul x3, $s6, $s6
-       umulh x4, $s6, $s6
+### s7*s7 ###
+	mul $t7,$s7,$s7
+	umulh $t8,$s7,$s7
 
-       # $s1 += carry($s4*$s4)
-       adds $s1, $s1, x17
-       # $s2 += $s5*$s5
-       adcs $s2, $s2, $s4
-       # $s3 += carry($s5*$s5)
-       adcs $s3, $s3, $s5
-       # $s4($s0) += $s6*$s6
-       adcs $s0, $s0, x3
-       # $s5(rbx) += carry($s6*$s6)
-       adcs x5, x5, x4
-       adcs x6, x6, xzr
-       adcs x15, x15, xzr
+	adds $s1,$s1,$t6
+	adcs $s2,$s2,$s4
+	adcs $s3,$s3,$s5
+	adcs $s0,$s0,$t0
+	adcs $t2,$t2,$t1
+	adcs $t3,$t3,$t7
+	adcs $t4,$t4,$t8
 
-### $s7*$s7 ###
-       mul x3, $s7, $s7
-       umulh x4, $s7, $s7
-       # $s6(rcx) += $s7*$s7
-       adds x6, x6, x3
-       # $s7(rsi) += carry($s7*$s7)
-       adcs x15, x15, x4
+	mov $s4,$s0
+	mov $s0,$t5
+	mov $s5,$t2
+	mov $s6,$t3
+	mov $s7,$t4
 
-       mov $s4, $s0
-       mov $s0, x16
-       mov $s5, x5
-       mov $s6, x6
-       mov $s7, x15
-
-       # result of mul: $s7 $s6 $s5 $s4 $s3 $s2 $s1 $s0
+	# result of mul: s7 s6 s5 s4 s3 s2 s1 s0
 
 ### Reduction ###
-       RDC
+	RDC
 
-       # Restore scalar registers
-       ldp x16, x17, [sp, #16]
-       ldp x29, x30, [sp], #64
+	stp $s0,$s1,[x0]
+	stp $s2,$s3,[x0,#16]
 
-       ret
-       .size ecp_sm2p256_sqr, .-ecp_sm2p256_sqr
+	# Restore scalar registers
+	ldp x16,x17,[sp,#16]
+	ldp x18,x19,[sp,#64]
+	ldp x29,x30,[sp],#80
 
+	ret
+.size ecp_sm2p256_sqr,.-ecp_sm2p256_sqr
 ___
-
-
 }
 
 foreach (split("\n",$code)) {
-       s/\`([^\`]*)\`/eval $1/ge;
+	s/\`([^\`]*)\`/eval $1/ge;
 
-       print $_,"\n";
+	print $_,"\n";
 }
-close STDOUT or die "error closing STDOUT: $!";        # enforce flush
+close STDOUT or die "error closing STDOUT: $!";		# enforce flush
