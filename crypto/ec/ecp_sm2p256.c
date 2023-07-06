@@ -21,17 +21,17 @@
 #include "internal/constant_time.h"
 
 #if defined(__GNUC__)
-# define ALIGN32        __attribute((aligned(32)))
-# define ALIGN64        __attribute((aligned(64)))
+#define ALIGN32 __attribute((aligned(32)))
+#define ALIGN64 __attribute((aligned(64)))
 #elif defined(_MSC_VER)
-# define ALIGN32        __declspec(align(32))
-# define ALIGN64        __declspec(align(64))
+#define ALIGN32 __declspec(align(32))
+#define ALIGN64 __declspec(align(64))
 #else
-# define ALIGN32
-# define ALIGN64
+#define ALIGN32
+#define ALIGN64
 #endif
 
-#define P256_LIMBS      (256/BN_BITS2)
+#define P256_LIMBS (256 / BN_BITS2)
 
 extern const BN_ULONG ecp_sm2p256_precomputed[8 * 32 * 256];
 
@@ -82,7 +82,7 @@ void bn_sub(BN_ULONG *r, const BN_ULONG *a, const BN_ULONG *b);
 /* Modular div by 2: r = a / 2 mod p */
 void ecp_sm2p256_div_by_2(BN_ULONG *r, const BN_ULONG *a);
 /* Modular div by 2: r = a / 2 mod n, where n = ord(p) */
-void ecp_sm2p256_div_by_2_mod_ord(BN_ULONG *r,const BN_ULONG *a);
+void ecp_sm2p256_div_by_2_mod_ord(BN_ULONG *r, const BN_ULONG *a);
 /* Modular add: r = a + b mod p */
 void ecp_sm2p256_add(BN_ULONG *r, const BN_ULONG *a, const BN_ULONG *b);
 /* Modular sub: r = a - b mod p */
@@ -124,7 +124,7 @@ static ossl_inline int is_greater(const BN_ULONG *a, const BN_ULONG *b)
 {
     int i;
 
-    for (i = P256_LIMBS -1 ; i >= 0; --i) {
+    for (i = P256_LIMBS - 1; i >= 0; --i) {
         if (a[i] > b[i])
             return 1;
         if (a[i] < b[i])
@@ -136,60 +136,67 @@ static ossl_inline int is_greater(const BN_ULONG *a, const BN_ULONG *b)
 
 #define is_one(a) is_equal(a, ONE)
 #define is_even(a) !(a[0] & 1)
-#define is_point_equal(a, b)     \
-    is_equal(a->X, b->X) &&      \
-    is_equal(a->Y, b->Y) &&      \
-    is_equal(a->Z, b->Z)
+#define is_point_equal(a, b) \
+    is_equal(a->X, b->X) && is_equal(a->Y, b->Y) && is_equal(a->Z, b->Z)
 
 /* Bignum and field elements conversion */
-#define ecp_sm2p256_bignum_field_elem(out, in) bn_copy_words(out, in, P256_LIMBS)
+#define ecp_sm2p256_bignum_field_elem(out, in) \
+    bn_copy_words(out, in, P256_LIMBS)
 
 /* Binary algorithm for inversion in Fp */
-#define BN_MOD_INV(out, in, mod_div, mod_sub, mod) \
-    do {                                           \
-        BN_ULONG u[4] ALIGN32;                     \
-        BN_ULONG v[4] ALIGN32;                     \
-        BN_ULONG x1[4] ALIGN32 = {1, 0, 0, 0};     \
-        BN_ULONG x2[4] ALIGN32 = {0};              \
-                                                   \
-        if (is_zeros(in))                          \
-            return;                                \
-        memcpy(u, in, 32);                         \
-        memcpy(v, mod, 32);                        \
-        while (!is_one(u) && !is_one(v)) {         \
-            while (is_even(u)) {                   \
-                bn_rshift1(u);                     \
-                mod_div(x1, x1);                   \
-            }                                      \
-            while (is_even(v)) {                   \
-                bn_rshift1(v);                     \
-                mod_div(x2, x2);                   \
-            }                                      \
-            if (is_greater(u, v) == 1) {           \
-                bn_sub(u, u, v);                   \
-                mod_sub(x1, x1, x2);               \
-            } else {                               \
-                bn_sub(v, v, u);                   \
-                mod_sub(x2, x2, x1);               \
-            }                                      \
-        }                                          \
-        if (is_one(u))                             \
-            memcpy(out, x1, 32);                   \
-        else                                       \
-            memcpy(out, x2, 32);                   \
-    } while (0)
+static ossl_inline void mod_inv(BN_ULONG* out,
+                                const BN_ULONG* in,
+                                void (*mod_div)(BN_ULONG* r, const BN_ULONG* a),
+                                void (*mod_sub)(BN_ULONG* r,
+                                                const BN_ULONG* a,
+                                                const BN_ULONG* b),
+                                const BN_ULONG* mod)
+{
+    BN_ULONG u[4] ALIGN32;
+    BN_ULONG v[4] ALIGN32;
+    BN_ULONG x1[4] ALIGN32 = {1, 0, 0, 0};
+    BN_ULONG x2[4] ALIGN32 = {0};
+
+    if (is_zeros(in))
+        return;
+    memcpy(u, in, 32);
+    memcpy(v, mod, 32);
+    while (!is_one(u) && !is_one(v)) {
+        while (is_even(u)) {
+            bn_rshift1(u);
+            mod_div(x1, x1);
+        }
+        while (is_even(v)) {
+            bn_rshift1(v);
+            mod_div(x2, x2);
+        }
+        if (is_greater(u, v) == 1) {
+            bn_sub(u, u, v);
+            mod_sub(x1, x1, x2);
+        } else {
+            bn_sub(v, v, u);
+            mod_sub(x2, x2, x1);
+        }
+    }
+    if (is_one(u))
+        memcpy(out, x1, 32);
+    else
+        memcpy(out, x2, 32);
+}
 
 /* Modular inverse |out| = |in|^(-1) mod |p|. */
 static ossl_inline void ecp_sm2p256_mod_inverse(BN_ULONG* out,
-                                                const BN_ULONG* in) {
-    BN_MOD_INV(out, in, ecp_sm2p256_div_by_2, ecp_sm2p256_sub, def_p);
+                                                const BN_ULONG* in)
+{
+    mod_inv(out, in, ecp_sm2p256_div_by_2, ecp_sm2p256_sub, def_p);
 }
 
 /* Modular inverse mod order |out| = |in|^(-1) % |ord|. */
 static ossl_inline void ecp_sm2p256_mod_ord_inverse(BN_ULONG* out,
-                                                    const BN_ULONG* in) {
-    BN_MOD_INV(out, in, ecp_sm2p256_div_by_2_mod_ord, ecp_sm2p256_sub_mod_ord,
-               def_ord);
+                                                    const BN_ULONG* in)
+{
+    mod_inv(out, in, ecp_sm2p256_div_by_2_mod_ord, ecp_sm2p256_sub_mod_ord,
+            def_ord);
 }
 
 /* Point double: R <- P + P */
