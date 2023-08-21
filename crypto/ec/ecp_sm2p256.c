@@ -33,7 +33,9 @@
 
 #define P256_LIMBS (256 / BN_BITS2)
 
+#if !defined(OPENSSL_NO_SM2_PRECOMP)
 extern const BN_ULONG ecp_sm2p256_precomputed[8 * 32 * 256];
+#endif
 
 typedef struct {
     BN_ULONG X[P256_LIMBS];
@@ -46,6 +48,7 @@ typedef struct {
     BN_ULONG Y[P256_LIMBS];
 } P256_POINT_AFFINE;
 
+#if !defined(OPENSSL_NO_SM2_PRECOMP)
 /* Coordinates of G, for which we have precomputed tables */
 static const BN_ULONG def_xG[P256_LIMBS] ALIGN32 = {
     0x715a4589334c74c7, 0x8fe30bbff2660be1,
@@ -56,6 +59,7 @@ static const BN_ULONG def_yG[P256_LIMBS] ALIGN32 = {
     0x02df32e52139f0a0, 0xd0a9877cc62a4740,
     0x59bdcee36b692153, 0xbc3736a2f4f6779c,
 };
+#endif
 
 /* p and order for SM2 according to GB/T 32918.5-2017 */
 static const BN_ULONG def_p[P256_LIMBS] ALIGN32 = {
@@ -346,6 +350,7 @@ static void ecp_sm2p256_point_add(P256_POINT *R, const P256_POINT *P,
     ecp_sm2p256_sub(R->Y, tmp2, tmp0);
 }
 
+#if !defined(OPENSSL_NO_SM2_PRECOMP)
 /* Base point mul by scalar: k - scalar, G - base point */
 static void ecp_sm2p256_point_G_mul_by_scalar(P256_POINT *R, const BN_ULONG *k)
 {
@@ -377,6 +382,7 @@ static void ecp_sm2p256_point_G_mul_by_scalar(P256_POINT *R, const BN_ULONG *k)
         }
     }
 }
+#endif
 
 /*
  * Affine point mul by scalar: k - scalar, P - affine point
@@ -447,6 +453,7 @@ static void ecp_sm2p256_point_get_affine(P256_POINT_AFFINE *R,
     ecp_sm2p256_mul(R->Y, P->Y, z_inv3);
 }
 
+#if !defined(OPENSSL_NO_SM2_PRECOMP)
 static int ecp_sm2p256_is_affine_G(const EC_POINT *generator)
 {
     return (bn_get_top(generator->X) == P256_LIMBS)
@@ -455,6 +462,7 @@ static int ecp_sm2p256_is_affine_G(const EC_POINT *generator)
             && is_equal(bn_get_words(generator->Y), def_yG)
             && (generator->Z_is_one == 1);
 }
+#endif
 
 /*
  * Convert Jacobian coordinate point into affine coordinate (x,y)
@@ -598,11 +606,13 @@ static int ecp_sm2p256_points_mul(const EC_GROUP *group,
             ECerr(ERR_LIB_EC, EC_R_COORDINATES_OUT_OF_RANGE);
             goto err;
         }
-
+#if !defined(OPENSSL_NO_SM2_PRECOMP)
         if (ecp_sm2p256_is_affine_G(generator)) {
             ecp_sm2p256_point_G_mul_by_scalar(&p.p, k);
-        } else {
-            /* if not sm2 generator */
+        } else
+#endif
+        {
+            /* if no precomputed table */
             const EC_POINT *new_generator[1];
             const BIGNUM *g_scalars[1];
 

@@ -25,6 +25,14 @@ OpenSSL 3.2
 
 ### Changes between 3.1 and 3.2 [xx XXX xxxx]
 
+ * Added optimization for SM2 algorithm on aarch64. It uses a huge precompted
+   table for point multiplicatin of the base point. To reduce the impact on the
+   size of the libcrypto, a new configure option `sm2-precomp` has been added.
+   The precomputed table isn't enabled by default. It can be enabled with the
+   option `enable-sm2-precomp`.
+
+   *Xu Yizhou*
+
  * Added client side support for QUIC
 
    *Hugo Landau*
