@@ -32,8 +32,10 @@ IF[{- !$disabled{asm} -}]
   $ECASM_aarch64=ecp_nistz256.c ecp_nistz256-armv8.S
   $ECDEF_aarch64=ECP_NISTZ256_ASM
   IF[{- !$disabled{'sm2'} -}]
-    $ECASM_aarch64=$ECASM_aarch64 ecp_sm2p256.c ecp_sm2p256_table.c \
-                   ecp_sm2p256-armv8.S
+    $ECASM_aarch64=$ECASM_aarch64 ecp_sm2p256.c ecp_sm2p256-armv8.S
+    IF[{- !$disabled{'sm2-precomp'} -}]
+      $ECASM_aarch64=$ECASM_aarch64 ecp_sm2p256_table.c
+    ENDIF
     $ECDEF_aarch64=$ECDEF_aarch64 ECP_SM2P256_ASM
   ENDIF
 
